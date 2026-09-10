@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: deans-cup-tokensurvey
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /
+    envVars:
+      - key: ADMIN_KEY
+        sync: false
+      - key: NODE_VERSION
+        value: 22.5.0

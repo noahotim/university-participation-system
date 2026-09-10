@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>University Participation System - Admin</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head><body class="bg-slate-50 min-h-screen">
+<div class="bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 text-white">
+  <div class="max-w-6xl mx-auto px-6 py-6 flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold">University Participation System</h1>
+      <p class="text-indigo-100 text-sm mt-1">General token-based surveys & event registrations - Dean's Cup 2026 and beyond</p>
+    </div>
+    <div class="flex items-center gap-2 bg-white/10 backdrop-blur rounded-xl px-3 py-2">
+      <span class="text-sm">Admin key</span>
+      <input id="key" type="password" value="admin123" class="bg-white text-slate-800 rounded-lg px-3 py-1.5 text-sm w-32">
+      <button onclick="saveKey()" class="bg-white text-indigo-700 px-4 py-1.5 rounded-lg text-sm font-semibold">Save</button>
+      <span id="kmsg" class="text-xs"></span>
+    </div>
+  </div>
+</div>
+
+<div class="max-w-6xl mx-auto px-6 py-6 space-y-6">
+  <!-- General system notice -->
+  <div class="bg-white border border-indigo-100 rounded-2xl p-5 shadow-sm flex flex-wrap gap-4 items-center justify-between">
+    <div>
+      <h2 class="font-bold">General System</h2>
+      <p class="text-sm text-slate-600">Create events, import allowlist CSV per event, each student gets a unique single-use token + email OTP verification. No open link - secure by design.</p>
+    </div>
+    <div class="flex gap-2">
+      <select id="eventSel" class="border rounded-lg px-3 py-2 text-sm" onchange="onEventChange()"></select>
+      <button onclick="createEventPrompt()" class="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm">+ New Event</button>
+    </div>
+  </div>
+
+  <!-- Stats cards -->
+  <div class="grid md:grid-cols-4 gap-4">
+    <div class="bg-white rounded-2xl p-5 shadow-sm border"><p class="text-xs text-slate-500">Participants</p><p id="statParticipants" class="text-2xl font-bold">-</p></div>
+    <div class="bg-white rounded-2xl p-5 shadow-sm border"><p class="text-xs text-slate-500">Responses</p><p id="statResponses" class="text-2xl font-bold">-</p></div>
+    <div class="bg-white rounded-2xl p-5 shadow-sm border"><p class="text-xs text-slate-500">Response Rate</p><p id="statRate" class="text-2xl font-bold">-</p></div>
+    <div class="bg-white rounded-2xl p-5 shadow-sm border"><p class="text-xs text-slate-500">Event</p><p id="statEvent" class="text-sm font-bold truncate">-</p></div>
+  </div>
+
+  <!-- Visualizations -->
+  <div class="grid lg:grid-cols-2 gap-6">
+    <div class="bg-white rounded-2xl p-5 shadow-sm border">
+      <h3 class="font-bold">Responses by Year of Study</h3>
+      <canvas id="chartYear" height="200"></canvas>
+    </div>
+    <div class="bg-white rounded-2xl p-5 shadow-sm border">
+      <h3 class="font-bold">Gender Distribution</h3>
+      <canvas id="chartGender" height="200"></canvas>
+    </div>
+    <div class="bg-white rounded-2xl p-5 shadow-sm border">
+      <h3 class="font-bold">Sports Popularity</h3>
+      <canvas id="chartSports" height="220"></canvas>
+    </div>
+    <div class="bg-white rounded-2xl p-5 shadow-sm border">
+      <h3 class="font-bold">Submissions Over Time</h3>
+      <canvas id="chartTimeline" height="220"></canvas>
+    </div>
+  </div>
+  <div class="bg-white rounded-2xl p-5 shadow-sm border">
+    <h3 class="font-bold">Football Positions</h3>
+    <canvas id="chartFootball" height="100"></canvas>
+  </div>
+
+  <!-- Import -->
+  <div class="bg-white rounded-2xl p-6 shadow-sm border">
+    <h2 class="text-lg font-bold">1. Import Currently-Enrolled CSV</h2>
+    <p class="text-sm text-slate-600 mt-1">Columns: <code class="bg-slate-100 px-1 rounded">reg_number,full_name,email</code> - only these students can participate. Header required.</p>
+    <textarea id="csv" class="mt-3 w-full h-40 border rounded-xl p-3 font-mono text-sm" placeholder="reg_number,full_name,email&#10;BU/ECS/2022/001,John Doe,john@soroti.ac.ug"></textarea>
+    <div class="flex flex-wrap gap-2 mt-3">
+      <button onclick="importCsv()" class="bg-indigo-600 text-white px-5 py-2 rounded-xl font-semibold">Import & Generate Tokens</button>
+      <button onclick="loadSample()" class="bg-slate-100 px-5 py-2 rounded-xl">Load 25-student demo</button>
+      <a href="/demo-currently-enrolled.csv" class="bg-slate-100 px-5 py-2 rounded-xl inline-block">Download demo CSV</a>
+    </div>
+    <p id="imsg" class="text-sm mt-2"></p>
+  </div>
+
+  <!-- Participants -->
+  <div class="bg-white rounded-2xl p-6 shadow-sm border">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h2 class="text-lg font-bold">2. Participants & Personal Links</h2>
+      <div class="flex gap-2">
+        <button onclick="loadParticipants()" class="border px-4 py-2 rounded-xl text-sm">Refresh</button>
+        <button onclick="exportParticipantsCsv()" class="bg-slate-800 text-white px-4 py-2 rounded-xl text-sm">Export tokens CSV</button>
+      </div>
+    </div>
+    <div id="participants" class="mt-4 overflow-auto"></div>
+  </div>
+
+  <!-- Responses -->
+  <div class="bg-white rounded-2xl p-6 shadow-sm border">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h2 class="text-lg font-bold">3. Responses</h2>
+      <div class="flex gap-2">
+        <button onclick="loadResponses()" class="border px-4 py-2 rounded-xl text-sm">Refresh</button>
+        <a id="exportLink" href="#" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm inline-block">Download responses CSV</a>
+      </div>
+    </div>
+    <div id="responses" class="mt-4 overflow-auto"></div>
+  </div>
+</div>
+
+<script>
+let ADMIN_KEY = localStorage.getItem('admin_key') || 'admin123';
+document.getElementById('key').value = ADMIN_KEY;
+function saveKey(){ ADMIN_KEY=document.getElementById('key').value; localStorage.setItem('admin_key', ADMIN_KEY); document.getElementById('kmsg').textContent='Saved'; updateExportLink(); loadAll(); }
+function updateExportLink(){ const e=document.getElementById('eventSel').value||'deans-cup-2026'; document.getElementById('exportLink').href='/api/admin/export?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(e); }
+function authHeaders(){ return {'Content-Type':'application/json','X-Admin-Key':ADMIN_KEY}; }
+function currentEvent(){ return document.getElementById('eventSel').value || 'deans-cup-2026'; }
+function onEventChange(){ updateExportLink(); loadAll(); }
+
+let charts={};
+function renderCharts(stats){
+  const destroy=(id)=>{ if(charts[id]){ charts[id].destroy(); } };
+  // Year
+  destroy('year'); {
+    const ctx=document.getElementById('chartYear');
+    const labels=Object.keys(stats.byYear||{});
+    const data=labels.map(k=>stats.byYear[k]);
+    charts.year=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Responses',data,backgroundColor:'#6366f1'}]},options:{responsive:true,plugins:{legend:{display:false}}}});
+  }
+  // Gender
+  destroy('gender'); {
+    const ctx=document.getElementById('chartGender');
+    const labels=Object.keys(stats.byGender||{});
+    const data=labels.map(k=>stats.byGender[k]);
+    charts.gender=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:['#6366f1','#ec4899','#10b981','#f59e0b']}]},options:{responsive:true}});
+  }
+  // Sports
+  destroy('sports'); {
+    const ctx=document.getElementById('chartSports');
+    const entries=Object.entries(stats.bySport||{}).sort((a,b)=>b[1]-a[1]).slice(0,12);
+    charts.sports=new Chart(ctx,{type:'bar',data:{labels:entries.map(e=>e[0]),datasets:[{label:'Players',data:entries.map(e=>e[1]),backgroundColor:'#8b5cf6'}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}}}});
+  }
+  // Timeline
+  destroy('timeline'); {
+    const ctx=document.getElementById('chartTimeline');
+    const labels=Object.keys(stats.timeline||{}).sort();
+    const data=labels.map(k=>stats.timeline[k]);
+    charts.timeline=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'Submissions',data,borderColor:'#0ea5e9',backgroundColor:'rgba(14,165,233,0.2)',fill:true,tension:0.3}]},options:{responsive:true}});
+  }
+  // Football
+  destroy('football'); {
+    const ctx=document.getElementById('chartFootball');
+    const labels=Object.keys(stats.byFootball||{});
+    const data=labels.map(k=>stats.byFootball[k]);
+    charts.football=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Players',data,backgroundColor:'#f59e0b'}]},options:{responsive:true,plugins:{legend:{display:false}}}});
+  }
+}
+
+async function loadEvents(){
+  const r=await fetch('/api/events'); const evs=await r.json();
+  const sel=document.getElementById('eventSel'); sel.innerHTML='';
+  for(const ev of evs){ const o=document.createElement('option'); o.value=ev.slug; o.textContent=ev.title+' ('+ev.slug+')'; sel.appendChild(o); }
+  if(!sel.value) sel.value='deans-cup-2026';
+  document.getElementById('statEvent').textContent=sel.value;
+  updateExportLink();
+}
+async function createEventPrompt(){
+  const slug=prompt('Event slug (e.g. deans-cup-2027):'); if(!slug) return;
+  const title=prompt('Event title:'); if(!title) return;
+  const desc=prompt('Description:')||'';
+  const r=await fetch('/api/admin/events',{method:'POST',headers:authHeaders(),body:JSON.stringify({slug,title,description:desc})});
+  const j=await r.json(); if(!r.ok) return alert(j.error); await loadEvents(); document.getElementById('eventSel').value=slug; onEventChange();
+}
+function parseCsv(text){
+  const lines=text.trim().split(/\r?\n/);
+  const header=lines[0].split(',').map(h=>h.trim().toLowerCase());
+  const ri=header.indexOf('reg_number'), ni=header.indexOf('full_name'), ei=header.indexOf('email');
+  if(ri<0||ni<0) throw new Error('CSV needs header reg_number,full_name,email');
+  return lines.slice(1).filter(l=>l.trim()).map(l=>{
+    const cols=l.split(',').map(c=>c.trim());
+    return {reg_number: cols[ri]||'', full_name: cols[ni]||'', email: cols[ei]||''};
+  });
+}
+async function importCsv(){
+  const imsg=document.getElementById('imsg');
+  try{
+    const participants=parseCsv(document.getElementById('csv').value);
+    imsg.textContent='Importing '+participants.length+'...'; imsg.className='text-sm mt-2 text-slate-600';
+    const r=await fetch('/api/admin/import?event='+encodeURIComponent(currentEvent()),{method:'POST',headers:authHeaders(),body:JSON.stringify({participants})});
+    const j=await r.json(); if(!r.ok) throw new Error(j.error);
+    imsg.innerHTML='<span class="text-green-600">Imported '+j.imported+' participants.</span>'; loadAll();
+  }catch(e){ imsg.innerHTML='<span class="text-red-600">'+e.message+'</span>'; }
+}
+function loadSample(){
+  fetch('/demo-currently-enrolled.csv').then(r=>r.text()).then(t=>{ document.getElementById('csv').value=t; });
+}
+async function loadParticipants(){
+  const r=await fetch('/api/admin/participants?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(currentEvent()));
+  const j=await r.json(); const base=location.origin;
+  let html='<table class="w-full text-sm"><thead><tr class="bg-slate-50"><th class="p-2 text-left">Reg</th><th class="p-2 text-left">Name</th><th class="p-2">Used</th><th class="p-2 text-left">Personal link</th></tr></thead><tbody>';
+  for(const p of j) html+=`<tr class="border-t"><td class="p-2">${p.reg_number}</td><td class="p-2">${p.full_name}</td><td class="p-2 text-center">${p.used?'<span class="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">yes</span>':'<span class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">no</span>'}</td><td class="p-2"><a href="${base}/s?token=${p.token}" target="_blank" class="text-indigo-600 hover:underline break-all">${base}/s?token=${p.token.slice(0,12)}...</a></td></tr>`;
+  html+='</tbody></table>'; document.getElementById('participants').innerHTML= j.length? html : '<p class="text-slate-500">No participants yet. Import CSV above.</p>';
+  document.getElementById('statParticipants').textContent=j.length;
+}
+function exportParticipantsCsv(){
+  fetch('/api/admin/participants?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(currentEvent())).then(r=>r.json()).then(j=>{
+    let csv='reg_number,full_name,email,token,link,used\n'; const base=location.origin;
+    for(const p of j) csv+=`"${p.reg_number}","${p.full_name}","${p.email||''}","${p.token}","${base}/s?token=${p.token}",${p.used}\n`;
+    const blob=new Blob([csv],{type:'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='tokens.csv'; a.click();
+  });
+}
+async function loadResponses(){
+  const r=await fetch('/api/admin/responses?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(currentEvent()));
+  const j=await r.json();
+  document.getElementById('statResponses').textContent=j.length;
+  const parts=await fetch('/api/admin/participants?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(currentEvent())).then(x=>x.json());
+  const rate = parts.length ? Math.round(j.length/parts.length*100)+'%' : '-';
+  document.getElementById('statRate').textContent=rate;
+  if(!j.length){ document.getElementById('responses').innerHTML='<p class="text-slate-500">No responses yet.</p>'; return; }
+  let html='<table class="w-full text-sm"><thead><tr class="bg-slate-50"><th class="p-2 text-left">Reg</th><th class="p-2 text-left">Name</th><th class="p-2">Year</th><th class="p-2">Gender</th><th class="p-2 text-left">Sports</th><th class="p-2">Submitted</th></tr></thead><tbody>';
+  for(const x of j) html+=`<tr class="border-t"><td class="p-2">${x.reg_number}</td><td class="p-2">${x.full_name}</td><td class="p-2 text-center">${x.year_of_study}</td><td class="p-2 text-center">${x.gender}</td><td class="p-2">${x.sports}</td><td class="p-2 text-xs">${x.submitted_at.slice(0,19).replace('T',' ')}</td></tr>`;
+  html+='</tbody></table>'; document.getElementById('responses').innerHTML=html;
+}
+async function loadStats(){
+  const r=await fetch('/api/admin/stats?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(currentEvent()));
+  const j=await r.json(); renderCharts(j);
+}
+async function loadAll(){ await loadParticipants(); await loadResponses(); await loadStats(); }
+loadEvents().then(loadAll);
+</script>
+</body></html>

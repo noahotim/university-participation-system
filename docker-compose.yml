@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - ADMIN_KEY=admin123
+      - SQLITE_FILE=/data/survey.db
+    volumes:
+      - survey-data:/data
+volumes:
+  survey-data:
