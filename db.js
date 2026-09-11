@@ -319,7 +319,6 @@ async function createOTP(token, email) {
     sqlite.prepare('DELETE FROM otps WHERE token=? AND email=?').run(token, email.toLowerCase().trim());
     sqlite.prepare('INSERT INTO otps(token, email, otp, expires_at, verified, created_at) VALUES(?,?,?,?,0,?)').run(token, email.toLowerCase().trim(), otp, expiresAt, now);
   }
-  console.log(`[OTP] token=${token.slice(0,8)} email=${email} otp=${otp}`);
   return otp;
 }
 

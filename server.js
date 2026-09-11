@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const db = require('./db');
+const emailer = require('./email');
 
 loadEnv();
 const app = express();
@@ -117,8 +118,24 @@ app.post('/api/auth/request-otp', async (req, res, next) => {
     if (!token || !email) return res.status(400).json({ error: 'token and email required' });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email' });
     const otp = await db.createOTP(token, email);
-    const isProd = !!process.env.SMTP_HOST;
-    res.json({ ok: true, message: isProd ? 'Code sent to your email' : 'Demo code (emailed in production)', demo_otp: isProd ? undefined : otp });
+    if (emailer.isConfigured()) {
+      let eventTitle = '';
+      try {
+        const p = await db.getParticipantByToken(token);
+        const evs = await db.listEvents();
+        const ev = evs.find(e => e.id === (p && p.event_id));
+        eventTitle = ev ? ev.title : '';
+      } catch { /* ignore */ }
+      try {
+        await emailer.sendOtp(email, otp, { eventTitle });
+        return res.json({ ok: true, message: 'A verification code was sent to ' + email });
+      } catch (err) {
+        console.error('sendOtp failed:', err.message);
+        return res.status(502).json({ error: 'Could not send the email right now. Please try again in a moment.' });
+      }
+    }
+    console.log(`[OTP][demo] ${email} => ${otp} (no SMTP configured)`);
+    res.json({ ok: true, message: 'Demo mode: email not configured', demo_otp: otp });
   } catch (e) {
     if (e.message.includes('Invalid token') || e.message.includes('Email does not match')) return res.status(400).json({ error: e.message });
     next(e);
@@ -298,7 +315,7 @@ sendBtn.addEventListener('click', async ()=>{
   sendBtn.disabled=true; sendMsg.textContent='Sending code...'; sendMsg.style.color='';
   const r=await fetch('/api/auth/request-otp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,email})});
   const j=await r.json();
-  if(r.ok){ sendMsg.innerHTML='Code sent. '+(j.demo_otp?'<b>Demo code: '+j.demo_otp+'</b> (emailed in production)':'Check your email.'); sendMsg.style.color='green'; otpRow.classList.remove('hidden'); }
+  if(r.ok){ sendMsg.innerHTML = j.demo_otp ? ('Code generated. <b>Demo code: '+j.demo_otp+'</b> (email not configured)') : ('We emailed a 6-digit code to <b>'+esc(email)+'</b>. Check your inbox and spam folder.'); sendMsg.style.color='green'; otpRow.classList.remove('hidden'); }
   else { sendMsg.textContent=j.error||'Error'; sendMsg.style.color='crimson'; }
   sendBtn.disabled=false;
 });

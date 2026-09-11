@@ -36,8 +36,31 @@ PORT=3002
 ADMIN_KEY=admin123
 SQLITE_FILE=data/survey.db
 # DATABASE_URL=postgres://user:pass@host:5432/db
-# SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM (for real OTP email)
 ```
+
+## Real email (OTP)
+
+Set these to send one-time codes to real inboxes. If `SMTP_HOST` is empty, the app runs in demo mode (code shown on the verification screen).
+
+```
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-smtp-username
+SMTP_PASS=your-smtp-password-or-api-key
+SMTP_FROM=University Participation System <no-reply@yourdomain.com>
+APP_NAME=University Participation System
+```
+
+Provider examples:
+- **Brevo (free 300/day):** host `smtp-relay.brevo.com`, port `587`, user = your login email, pass = SMTP key from Brevo dashboard.
+- **SendGrid:** host `smtp.sendgrid.net`, port `587`, user literally `apikey`, pass = your API key.
+- **Mailgun:** host `smtp.mailgun.org`, port `587`, user = postmaster@yourdomain, pass = SMTP password.
+- **Gmail/Google Workspace:** host `smtp.gmail.com`, port `587`, user = full email, pass = 16-char App Password (requires 2-Step Verification; may be blocked for bulk mail).
+- **Your university mail server:** ask IT for SMTP host/port and a sending account.
+
+Set `SMTP_FROM` to an address the provider allows you to send as (must match/verify the domain with the provider or mail will be rejected/spam-foldered).
+
 
 ## API
 
