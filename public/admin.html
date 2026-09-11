@@ -28,6 +28,7 @@
     <div class="flex gap-2">
       <select id="eventSel" class="border rounded-lg px-3 py-2 text-sm" onchange="onEventChange()"></select>
       <button onclick="createEventPrompt()" class="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm">+ New Event</button>
+      <button onclick="deleteEventPrompt()" class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm">Delete Event</button>
     </div>
   </div>
 
@@ -270,6 +271,13 @@ async function createEventPrompt(){
   const desc=prompt('Description:')||'';
   const r=await fetch('/api/admin/events',{method:'POST',headers:authHeaders(),body:JSON.stringify({slug,title,description:desc})});
   const j=await r.json(); if(!r.ok) return alert(j.error); await loadEvents(); document.getElementById('eventSel').value=slug; onEventChange();
+}
+async function deleteEventPrompt(){
+  const slug=currentEvent();
+  if(!confirm('Delete event "'+slug+'" and ALL its participants and responses? This cannot be undone.')) return;
+  const r=await fetch('/api/admin/events/'+encodeURIComponent(slug),{method:'DELETE',headers:authHeaders()});
+  const j=await r.json(); if(!r.ok) return alert(j.error||'Error');
+  await loadEvents(); onEventChange();
 }
 
 // ---------- participants list ----------

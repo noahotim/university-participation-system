@@ -184,6 +184,19 @@ async function createEvent(slug, title, description, fields) {
   return sqlite.prepare('SELECT * FROM events WHERE slug=?').get(slug);
 }
 
+async function deleteEvent(slug) {
+  const eventId = await getEventId(slug);
+  if (backend === 'postgres') {
+    await pgPool.query('DELETE FROM responses WHERE event_id=$1', [eventId]);
+    await pgPool.query('DELETE FROM participants WHERE event_id=$1', [eventId]);
+    await pgPool.query('DELETE FROM events WHERE id=$1', [eventId]);
+    return;
+  }
+  sqlite.prepare('DELETE FROM responses WHERE event_id=?').run(eventId);
+  sqlite.prepare('DELETE FROM participants WHERE event_id=?').run(eventId);
+  sqlite.prepare('DELETE FROM events WHERE id=?').run(eventId);
+}
+
 async function getEventFields(slug) {
   const s = slug || 'deans-cup-2026';
   let raw = null;
@@ -404,4 +417,4 @@ async function getStats(eventSlug) {
   return { total: responses.length, byYear, byGender, bySport, byFootball, byField, fieldLabels, timeline };
 }
 
-module.exports = { DEFAULT_FIELDS, init, listEvents, createEvent, getEventId, getEventFields, getEventFieldsById, setEventFields, importParticipants, getParticipantByToken, listParticipants, submitResponse, listResponses, createOTP, verifyOTP, hasVerifiedOTP, getStats };
+module.exports = { DEFAULT_FIELDS, init, listEvents, createEvent, deleteEvent, getEventId, getEventFields, getEventFieldsById, setEventFields, importParticipants, getParticipantByToken, listParticipants, submitResponse, listResponses, createOTP, verifyOTP, hasVerifiedOTP, getStats };

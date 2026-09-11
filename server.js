@@ -37,6 +37,9 @@ app.post('/api/admin/events', requireAdmin, async (req, res, next) => {
     res.json(await db.createEvent(slug, title, description, fields));
   } catch (e) { next(e); }
 });
+app.delete('/api/admin/events/:slug', requireAdmin, async (req, res, next) => {
+  try { await db.deleteEvent(req.params.slug); res.json({ ok: true }); } catch (e) { next(e); }
+});
 app.get('/api/admin/fields', requireAdmin, async (req, res, next) => {
   try { res.json(await db.getEventFields(req.query.event)); } catch (e) { next(e); }
 });
