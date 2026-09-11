@@ -5,4 +5,4 @@ RUN npm install --omit=dev
 COPY . .
 ENV PORT=3002
 EXPOSE 3002
-CMD ["node", "server.js"]
+CMD ["node", "--experimental-sqlite", "server.js"]

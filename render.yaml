@@ -4,7 +4,7 @@ services:
     env: node
     plan: free
     buildCommand: npm install
-    startCommand: node server.js
+    startCommand: node --experimental-sqlite server.js
     healthCheckPath: /
     envVars:
       - key: ADMIN_KEY
