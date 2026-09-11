@@ -76,7 +76,7 @@ function createSchema() {
     try { sqlite.exec('CREATE INDEX IF NOT EXISTS idx_otps_token ON otps(token, email)'); } catch {}
     try { sqlite.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_participants_reg_event ON participants(reg_number, event_id)'); } catch {}
     const existing = sqlite.prepare('SELECT id FROM events WHERE slug=?').get('deans-cup-2026');
-    if (!existing) {
+    if (!existing || existing.id == null) {
       sqlite.prepare('INSERT INTO events(slug, title, description, created_at) VALUES(?,?,?,?)')
         .run('deans-cup-2026', "ECS Dean's Cup 2026", 'Electronics and Computer Engineering sports registration - 4th Edition', new Date().toISOString());
     }
@@ -138,7 +138,7 @@ async function getEventId(slug) {
     return rows[0] ? rows[0].id : 1;
   }
   const row = sqlite.prepare('SELECT id FROM events WHERE slug=?').get(s);
-  return row ? row.id : 1;
+  return (row && row.id != null) ? row.id : 1;
 }
 
 async function listEvents() {
@@ -175,7 +175,7 @@ async function importParticipants(rows, eventSlug) {
       results.push({ reg_number: reg, full_name: name, email: r.email || '', token, status: 'created' });
     } else {
       const existing = sqlite.prepare('SELECT token FROM participants WHERE reg_number=? AND event_id=?').get(reg, eventId);
-      if (existing) { results.push({ reg_number: reg, token: existing.token, status: 'exists' }); continue; }
+      if (existing && existing.token) { results.push({ reg_number: reg, token: existing.token, status: 'exists' }); continue; }
       sqlite.prepare('INSERT INTO participants(token, reg_number, full_name, email, used, event_id, created_at) VALUES(?,?,?,?,0,?,?)').run(token, reg, name, r.email || '', eventId, new Date().toISOString());
       results.push({ reg_number: reg, full_name: name, email: r.email || '', token, status: 'created' });
     }
@@ -188,7 +188,8 @@ async function getParticipantByToken(token) {
     const { rows } = await pgPool.query('SELECT * FROM participants WHERE token=$1', [token]);
     return rows[0] || null;
   }
-  return sqlite.prepare('SELECT * FROM participants WHERE token=?').get(token) || null;
+  const row = sqlite.prepare('SELECT * FROM participants WHERE token=?').get(token);
+  return (row && row.token) ? row : null;
 }
 
 async function listParticipants(eventSlug) {
@@ -243,7 +244,7 @@ async function verifyOTP(token, email, otp) {
     return true;
   }
   const row = sqlite.prepare('SELECT * FROM otps WHERE token=? AND email=? AND otp=? ORDER BY created_at DESC LIMIT 1').get(token, email.toLowerCase().trim(), otp);
-  if (!row) throw new Error('Invalid code');
+  if (!row || row.otp == null) throw new Error('Invalid code');
   if (row.verified) throw new Error('Code already used');
   if (row.expires_at < now) throw new Error('Code expired');
   sqlite.prepare('UPDATE otps SET verified=1 WHERE id=?').run(row.id);
@@ -257,7 +258,7 @@ async function hasVerifiedOTP(token, email) {
     return !!rows.length;
   }
   const row = sqlite.prepare('SELECT * FROM otps WHERE token=? AND email=? AND verified=1 AND expires_at > ? ORDER BY created_at DESC LIMIT 1').get(token, email.toLowerCase().trim(), now);
-  return !!row;
+  return !!(row && row.otp != null);
 }
 
 async function submitResponse(token, data) {
