@@ -179,16 +179,20 @@ async function fileToMatrix(file){
   }
   return parseDelimited(await fileToText(file));
 }
+function pickBy(lower, patterns, exclude){
+  for(const p of patterns){ for(let i=0;i<lower.length;i++){ const h=lower[i]; if(!h) continue; if(exclude && exclude.test(h)) continue; if(p.test(h)) return i; } }
+  return -1;
+}
 function matrixToParticipants(matrix){
   const m=(matrix||[]).filter(r=>Array.isArray(r)&&r.some(c=>String(c==null?'':c).trim()!==''));
-  if(!m.length) return {rows:[],columns:[]};
+  if(!m.length) return {rows:[],columns:[],hasEmail:false};
   const header=m[0].map(h=>String(h==null?'':h).trim());
   const lower=header.map(h=>h.toLowerCase());
-  let ri=lower.findIndex(h=>/reg/.test(h));
-  let ni=lower.findIndex(h=>/name/.test(h));
-  let ei=lower.findIndex(h=>/mail/.test(h));
+  let ri=pickBy(lower, [/reg/, /matric/, /voter\s*(no|number|id)/, /\bid\b/, /number/, /\bno\b/, /code/], /phone|mobile|tel|mail/);
+  let ni=pickBy(lower, [/full\s*name/, /name/, /voter/, /student/], /no\b|number|id\b|code|phone|mobile|tel|mail|\d/);
+  let ei=pickBy(lower, [/e-?mail/, /mail/], null);
   if(ri<0) ri=0;
-  if(ni<0) ni=header.length>1?1:-1;
+  if(ni<0){ ni=-1; for(let i=0;i<header.length;i++){ if(i!==ri){ ni=i; break; } } }
   const rows=[];
   for(let i=1;i<m.length;i++){
     const r=m[i]||[];
@@ -200,7 +204,7 @@ function matrixToParticipants(matrix){
     header.forEach((h,j)=>{ if(h) o[h]=r[j]==null?'':r[j]; });
     rows.push(o);
   }
-  return {rows,columns:header};
+  return {rows,columns:header,hasEmail:ei>=0};
 }
 function slugKey(s){ return String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'') || 'field'; }
 function fieldsFromColumns(columns){
@@ -222,7 +226,7 @@ function fieldsFromColumns(columns){
   }
   return out;
 }
-async function importRows(rows, columns){
+async function importRows(rows, columns, hasEmail){
   const imsg=document.getElementById('imsg');
   if(!rows.length){ imsg.innerHTML='<span class="text-red-600">No data rows found'+(columns&&columns.length?'. Detected columns: '+esc(columns.join(', ')):'')+'.</span>'; return; }
   imsg.textContent='Uploading '+rows.length+' rows...'; imsg.className='text-sm mt-2 text-slate-600';
@@ -231,6 +235,7 @@ async function importRows(rows, columns){
   if(r.status===401){ keyBad(); imsg.innerHTML='<span class="text-red-600">Invalid admin key - enter the correct key (top-right) and click Save.</span>'; return; }
   if(!r.ok){ imsg.innerHTML='<span class="text-red-600">'+(j.error||'Error')+'</span>'; return; }
   imsg.innerHTML='<span class="text-green-600">Created '+j.imported+' token(s)'+(j.exists?', '+j.exists+' already existed':'')+(j.skipped?', skipped '+j.skipped:'')+'.</span> <span class="text-slate-500 text-xs">Columns: '+esc((columns||[]).join(', '))+'</span>';
+  if(hasEmail===false){ imsg.innerHTML+=' <span class="text-amber-600 text-xs">Warning: no email column detected - these students will not be able to verify by email.</span>'; }
   const auto=document.getElementById('autoFields');
   if(auto && auto.checked && columns && columns.length){
     const gen=fieldsFromColumns(columns);
@@ -243,12 +248,12 @@ async function importFile(){
   const imsg=document.getElementById('imsg');
   if(!f){ imsg.innerHTML='<span class="text-red-600">Choose a CSV or Excel file first.</span>'; return; }
   imsg.textContent='Reading '+f.name+' ...'; imsg.className='text-sm mt-2 text-slate-600';
-  try{ const res=matrixToParticipants(await fileToMatrix(f)); await importRows(res.rows, res.columns); }
+  try{ const res=matrixToParticipants(await fileToMatrix(f)); await importRows(res.rows, res.columns, res.hasEmail); }
   catch(e){ imsg.innerHTML='<span class="text-red-600">'+e.message+'</span>'; }
 }
 async function importPasted(){
   const imsg=document.getElementById('imsg');
-  try{ const res=matrixToParticipants(parseDelimited(document.getElementById('csv').value)); await importRows(res.rows, res.columns); }
+  try{ const res=matrixToParticipants(parseDelimited(document.getElementById('csv').value)); await importRows(res.rows, res.columns, res.hasEmail); }
   catch(e){ imsg.innerHTML='<span class="text-red-600">'+e.message+'</span>'; }
 }
 
@@ -387,8 +392,8 @@ async function duplicateEventPrompt(){
 async function loadParticipants(){
   const r=await fetch('/api/admin/participants?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(currentEvent()));
   const j=await r.json(); const base=location.origin;
-  let html='<table class="w-full text-sm"><thead><tr class="bg-slate-50"><th class="p-2 text-left">Reg</th><th class="p-2 text-left">Name</th><th class="p-2">Used</th><th class="p-2 text-left">Personal link</th><th class="p-2"></th></tr></thead><tbody>';
-  for(const p of j) html+='<tr class="border-t"><td class="p-2">'+esc(p.reg_number)+'</td><td class="p-2">'+esc(p.full_name)+'</td><td class="p-2 text-center">'+(p.used?'<span class="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">yes</span>':'<span class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">no</span>')+'</td><td class="p-2"><a href="'+base+'/s?token='+p.token+'" target="_blank" class="text-indigo-600 hover:underline break-all">'+base+'/s?token='+p.token.slice(0,12)+'...</a></td><td class="p-2 text-right"><button onclick="deleteParticipant(\''+p.token+'\')" class="text-red-600 hover:bg-red-50 rounded px-2 py-1" title="Delete participant">✕</button></td></tr>';
+  let html='<table class="w-full text-sm"><thead><tr class="bg-slate-50"><th class="p-2 text-left">Reg</th><th class="p-2 text-left">Name</th><th class="p-2 text-left">Email</th><th class="p-2">Used</th><th class="p-2 text-left">Personal link</th><th class="p-2"></th></tr></thead><tbody>';
+  for(const p of j) html+='<tr class="border-t"><td class="p-2">'+esc(p.reg_number)+'</td><td class="p-2">'+esc(p.full_name)+'</td><td class="p-2 '+(p.email?'':'text-amber-600')+'">'+esc(p.email||'(none)')+'</td><td class="p-2 text-center">'+(p.used?'<span class="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">yes</span>':'<span class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">no</span>')+'</td><td class="p-2"><a href="'+base+'/s?token='+p.token+'" target="_blank" class="text-indigo-600 hover:underline break-all">'+base+'/s?token='+p.token.slice(0,12)+'...</a></td><td class="p-2 text-right"><button onclick="deleteParticipant(\''+p.token+'\')" class="text-red-600 hover:bg-red-50 rounded px-2 py-1" title="Delete participant">✕</button></td></tr>';
   html+='</tbody></table>'; document.getElementById('participants').innerHTML= j.length? html : '<p class="text-slate-500">No participants yet.</p>';
   document.getElementById('statParticipants').textContent=j.length;
 }

@@ -304,12 +304,20 @@ async function importParticipants(rows, eventSlug) {
     const extra = JSON.stringify(r);
     if (backend === 'postgres') {
       const existing = await pgPool.query('SELECT token FROM participants WHERE reg_number=$1 AND event_id=$2', [reg, eventId]);
-      if (existing.rows.length && existing.rows[0].token) { results.push({ reg_number: reg, token: existing.rows[0].token, status: 'exists' }); continue; }
+      if (existing.rows.length && existing.rows[0].token) {
+        if (r.email) await pgPool.query('UPDATE participants SET email=$1 WHERE token=$2', [String(r.email).trim(), existing.rows[0].token]);
+        results.push({ reg_number: reg, full_name: name, email: r.email || '', token: existing.rows[0].token, status: 'exists' });
+        continue;
+      }
       await pgPool.query('INSERT INTO participants(token, reg_number, full_name, email, used, event_id, extra, created_at) VALUES($1,$2,$3,$4,0,$5,$6,$7)', [token, reg, name, r.email || '', eventId, extra, new Date().toISOString()]);
       results.push({ reg_number: reg, full_name: name, email: r.email || '', token, status: 'created' });
     } else {
       const existing = sqlite.prepare('SELECT token FROM participants WHERE reg_number=? AND event_id=?').get(reg, eventId);
-      if (existing && existing.token) { results.push({ reg_number: reg, token: existing.token, status: 'exists' }); continue; }
+      if (existing && existing.token) {
+        if (r.email) sqlite.prepare('UPDATE participants SET email=? WHERE token=?').run(String(r.email).trim(), existing.token);
+        results.push({ reg_number: reg, full_name: name, email: r.email || '', token: existing.token, status: 'exists' });
+        continue;
+      }
       sqlite.prepare('INSERT INTO participants(token, reg_number, full_name, email, used, event_id, extra, created_at) VALUES(?,?,?,?,0,?,?,?)').run(token, reg, name, r.email || '', eventId, extra, new Date().toISOString());
       results.push({ reg_number: reg, full_name: name, email: r.email || '', token, status: 'created' });
     }
