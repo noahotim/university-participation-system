@@ -349,7 +349,10 @@ async function markUsed(token) {
 async function createOTP(token, email) {
   const p = await getParticipantByToken(token);
   if (!p) throw new Error('Invalid token');
-  if (p.email && p.email.toLowerCase() !== email.toLowerCase().trim()) throw new Error('Email does not match token');
+  const entered = String(email || '').toLowerCase().trim();
+  const onFile = String(p.email || '').toLowerCase().trim();
+  if (!onFile) throw new Error('No email is registered for this link. Please contact the administrator.');
+  if (onFile !== entered) throw new Error('This email is not registered for this link. Use the email you were registered with.');
   const otp = String(Math.floor(100000 + Math.random() * 900000));
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
   const now = new Date().toISOString();

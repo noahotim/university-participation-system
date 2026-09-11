@@ -186,7 +186,7 @@ function matrixToParticipants(matrix){
   const lower=header.map(h=>h.toLowerCase());
   let ri=lower.findIndex(h=>/reg/.test(h));
   let ni=lower.findIndex(h=>/name/.test(h));
-  let ei=lower.findIndex(h=>/e-?mail/.test(h));
+  let ei=lower.findIndex(h=>/mail/.test(h));
   if(ri<0) ri=0;
   if(ni<0) ni=header.length>1?1:-1;
   const rows=[];
@@ -208,7 +208,7 @@ function fieldsFromColumns(columns){
   for(const col of (columns||[])){
     const label=String(col==null?'':col).trim(); if(!label) continue;
     const l=label.toLowerCase();
-    if(/e-?mail/.test(l)) continue;           // email is handled by OTP verification
+    if(/mail/.test(l)) continue;           // email is handled by OTP verification
     let name=slugKey(label); if(seen[name]){ seen[name]++; name=name+'_'+seen[name]; } else seen[name]=1;
     let type='text';
     if(/phone|mobile|\btel\b|contact/.test(l)) type='tel';

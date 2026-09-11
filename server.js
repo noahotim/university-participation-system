@@ -264,9 +264,10 @@ function renderSurvey(p, token, fields, evTitle) {
 
       <div id="verifyBox" class="mt-6 p-5 border rounded-xl bg-amber-50 border-amber-200">
         <h2 class="font-bold text-amber-900">Step 1: Verify your university email</h2>
-        <p class="text-sm text-amber-800 mt-1">Enter the university email tied to this token. We send a 6-digit code (demo code shown on screen - emailed in production).</p>
-        <label class="block text-sm font-semibold mt-3">University email *</label>
-        <input id="email" type="email" value="${escapeHtml(participant.email)}" placeholder="name@soroti.ac.ug" class="mt-1 w-full border rounded-lg px-3 py-2">
+        <p class="text-sm text-amber-800 mt-1">A one-time code will be sent to the email registered for this link.</p>
+        <label class="block text-sm font-semibold mt-3">Registered email</label>
+        <input id="email" type="email" value="${escapeHtml(participant.email)}" ${participant.email ? 'readonly' : ''} placeholder="name@soroti.ac.ug" class="mt-1 w-full border rounded-lg px-3 py-2 ${participant.email ? 'bg-slate-100 text-slate-600' : ''}">
+        <p class="text-xs text-slate-500 mt-1">Only the email uploaded by the administrator can receive the code.</p>
         <button id="sendBtn" class="mt-3 w-full bg-amber-600 text-white py-2 rounded-lg font-semibold">Send verification code</button>
         <p id="sendMsg" class="text-sm mt-2"></p>
         <div id="otpRow" class="hidden mt-4">
