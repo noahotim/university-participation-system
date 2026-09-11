@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="University Participation System" />
+  <meta name="dcterms.date" content="2026-01-01" />
+  <title>University Participation System - System Manual</title>
+  <style>
+
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+</style>
+  <style type="text/css">@page { size: A4; margin: 18mm 16mm; }
+html { font-size: 11pt; }
+body {
+font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+color: #1f2937; line-height: 1.5; max-width: 900px; margin: 0 auto; padding: 0 8px;
+}
+h1, h2, h3, h4 { color: #312e81; line-height: 1.25; }
+h1 { font-size: 1.9rem; border-bottom: 3px solid #6366f1; padding-bottom: 6px; margin-top: 1.4em; }
+h2 { font-size: 1.4rem; border-bottom: 1px solid #c7d2fe; padding-bottom: 4px; margin-top: 1.4em; }
+h3 { font-size: 1.12rem; margin-top: 1.1em; }
+h1.title { font-size: 2.1rem; text-align: center; border: 0; color: #4338ca; }
+p.subtitle { text-align: center; color: #6b7280; font-size: 1rem; }
+p.author, p.date { text-align: center; color: #6b7280; font-size: 0.9rem; }
+a { color: #4338ca; text-decoration: none; }
+code { background: #f3f4f6; padding: 1px 5px; border-radius: 4px; font-size: 0.88em; color: #b91c1c; }
+pre {
+background: #0f172a; color: #e2e8f0; padding: 12px 14px; border-radius: 8px;
+overflow-x: auto; font-size: 0.8rem; line-height: 1.35; page-break-inside: avoid;
+}
+pre code { background: none; color: inherit; padding: 0; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 0.9rem; page-break-inside: avoid; }
+th, td { border: 1px solid #e5e7eb; padding: 6px 9px; text-align: left; vertical-align: top; }
+th { background: #eef2ff; color: #3730a3; }
+blockquote { border-left: 4px solid #a5b4fc; background: #f5f7ff; margin: 12px 0; padding: 6px 14px; color: #374151; }
+hr { border: 0; border-top: 1px solid #e5e7eb; margin: 22px 0; }
+h1, h2, h3 { page-break-after: avoid; }
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">University Participation System - System Manual</h1>
+<p class="subtitle">Token-based surveys &amp; event registration with
+email-verified participants</p>
+<p class="author">University Participation System</p>
+<p class="date">2026</p>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#overview" id="toc-overview">1. Overview</a></li>
+<li><a href="#what-it-solves" id="toc-what-it-solves">2. What it
+solves</a></li>
+<li><a href="#key-concepts" id="toc-key-concepts">3. Key
+concepts</a></li>
+<li><a href="#architecture" id="toc-architecture">4.
+Architecture</a></li>
+<li><a href="#data-model" id="toc-data-model">5. Data model</a></li>
+<li><a href="#end-to-end-flow" id="toc-end-to-end-flow">6. End-to-end
+flow</a>
+<ul>
+<li><a href="#administrator-flow" id="toc-administrator-flow">6.1
+Administrator flow</a></li>
+<li><a href="#student-flow" id="toc-student-flow">6.2 Student
+flow</a></li>
+<li><a href="#request-flow-technical" id="toc-request-flow-technical">6.3 Request flow (technical)</a></li>
+</ul></li>
+<li><a href="#administrator-guide" id="toc-administrator-guide">7.
+Administrator guide</a>
+<ul>
+<li><a href="#create-select-an-event" id="toc-create-select-an-event">7.1 Create / select an event</a></li>
+<li><a href="#build-the-form" id="toc-build-the-form">7.2 Build the
+form</a></li>
+<li><a href="#upload-participants" id="toc-upload-participants">7.3
+Upload participants</a></li>
+<li><a href="#distribute-links" id="toc-distribute-links">7.4 Distribute
+links</a></li>
+<li><a href="#monitor-export" id="toc-monitor-export">7.5 Monitor &amp;
+export</a></li>
+</ul></li>
+<li><a href="#student-guide" id="toc-student-guide">8. Student
+guide</a></li>
+<li><a href="#email-otp-setup" id="toc-email-otp-setup">9. Email (OTP)
+setup</a></li>
+<li><a href="#deployment-configuration" id="toc-deployment-configuration">10. Deployment &amp; configuration</a>
+<ul>
+<li><a href="#environment-variables" id="toc-environment-variables">10.1
+Environment variables</a></li>
+<li><a href="#render" id="toc-render">10.2 Render</a></li>
+<li><a href="#docker-vps" id="toc-docker-vps">10.3 Docker / VPS</a></li>
+</ul></li>
+<li><a href="#api-reference" id="toc-api-reference">11. API
+reference</a></li>
+<li><a href="#security-model" id="toc-security-model">12. Security
+model</a></li>
+<li><a href="#csv-file-formats-column-detection" id="toc-csv-file-formats-column-detection">13. CSV / file formats &amp;
+column detection</a></li>
+<li><a href="#troubleshooting" id="toc-troubleshooting">14.
+Troubleshooting</a></li>
+<li><a href="#local-development" id="toc-local-development">15. Local
+development</a></li>
+</ul>
+</nav>
+<h1 id="overview">1. Overview</h1>
+<p>The <strong>University Participation System</strong> is a secure,
+general-purpose web application for running <strong>event registrations
+and surveys</strong> where only <strong>eligible, registered
+people</strong> can take part. Each eligible person receives a
+<strong>personal link</strong> (a token). They verify ownership of their
+<strong>registered email</strong> with a <strong>one-time code
+(OTP)</strong> and then complete a <strong>form</strong> that the
+administrator designs. Every token can be used
+<strong>once</strong>.</p>
+<p>It replaces “open Google Forms” links, which anyone with a
+valid-looking email can fill in — including alumni or outsiders. Here,
+<strong>access is granted only to the people whose records (including
+email) the administrator uploads</strong>.</p>
+<p><strong>Live deployment:</strong> Render (web service + Postgres),
+email via Brevo HTTP API.</p>
+<hr />
+<h1 id="what-it-solves">2. What it solves</h1>
+<table>
+<colgroup>
+<col style="width: 61%" />
+<col style="width: 38%" />
+</colgroup>
+<thead>
+<tr>
+<th>Risk with open forms</th>
+<th>How this system fixes it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Anyone with the link can submit</td>
+<td>No public form link; only personal token links</td>
+</tr>
+<tr>
+<td>Alumni / outsiders with valid email</td>
+<td>Only <strong>uploaded</strong> emails can verify</td>
+</tr>
+<tr>
+<td>One person submitting many times</td>
+<td>Token is <strong>single-use</strong> and OTP is
+<strong>single-use</strong></td>
+</tr>
+<tr>
+<td>Email might be spoofed</td>
+<td>Only the exact <strong>registered email</strong> receives the
+code</td>
+</tr>
+<tr>
+<td>Data hard to analyse</td>
+<td>Live charts + CSV/PDF exports</td>
+</tr>
+<tr>
+<td>Rebuilding forms for each event</td>
+<td>Create / duplicate events with custom fields</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h1 id="key-concepts">3. Key concepts</h1>
+<ul>
+<li><strong>Event</strong> — a form/registration campaign
+(e.g. <em>Dean’s Cup 2026</em>). Each event has its own <strong>form
+fields</strong>, <strong>participants</strong>, and
+<strong>responses</strong>.</li>
+<li><strong>Participant</strong> — one eligible person in an event.
+Stored as <code>reg_number</code>, <code>full_name</code>,
+<code>email</code>.</li>
+<li><strong>Token</strong> — a random 32-character id generated per
+participant. It forms the personal link: <code>…/s?token=XXXX</code>.
+<strong>Single-use.</strong></li>
+<li><strong>Form fields</strong> — the questions shown to the student,
+defined per event (text, choice, multi-choice, etc.).</li>
+<li><strong>OTP</strong> — a 6-digit one-time code emailed to the
+participant’s registered email. Expires in <strong>10 minutes</strong>,
+<strong>single-use</strong>.</li>
+<li><strong>Admin key</strong> — a shared secret required for all admin
+actions.</li>
+</ul>
+<hr />
+<h1 id="architecture">4. Architecture</h1>
+<pre><code>                         ┌────────────────────────────┐
+                         │        Browser             │
+                         │  Admin  |  Student form    │
+                         └─────────────┬──────────────┘
+                                       │ HTTPS
+                         ┌─────────────▼──────────────┐
+                         │   Node.js + Express app     │
+                         │  server.js  (routes)        │
+                         │  db.js      (data layer)    │
+                         │  email.js   (OTP delivery)  │
+                         └──────┬───────────────┬──────┘
+                                │               │
+                 ┌──────────────▼──┐     ┌──────▼───────────────┐
+                 │   PostgreSQL    │     │  Email HTTP API       │
+                 │ (or SQLite)     │     │  Brevo / SendGrid /   │
+                 │ events, users,  │     │  Resend  (port 443)   │
+                 │ responses, OTPs │     │                       │
+                 └─────────────────┘     └───────────────────────┘</code></pre>
+<ul>
+<li><strong>Frontend:</strong> static HTML pages served by the app
+(<code>/</code>, <code>/admin.html</code>, <code>/s</code>), styled with
+Tailwind (CDN), charts with Chart.js, PDF via jsPDF, spreadsheet reading
+via SheetJS.</li>
+<li><strong>Backend:</strong> <code>server.js</code> (Express) exposes
+the API and renders the survey page.</li>
+<li><strong>Data:</strong> <code>db.js</code> supports
+<strong>PostgreSQL</strong> (production) and <strong>SQLite</strong>
+(local/zero-config). Schema is created automatically on start.</li>
+<li><strong>Email:</strong> <code>email.js</code> sends OTPs through an
+<strong>HTTP email API</strong> (needed because most PaaS hosts block
+outbound SMTP ports).</li>
+</ul>
+<hr />
+<h1 id="data-model">5. Data model</h1>
+<p><strong>events</strong> — one row per form/event</p>
+<table>
+<thead>
+<tr>
+<th>column</th>
+<th>notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>primary key</td>
+</tr>
+<tr>
+<td>slug</td>
+<td>unique short id (e.g. <code>deans-cup-2026</code>)</td>
+</tr>
+<tr>
+<td>title</td>
+<td>display name</td>
+</tr>
+<tr>
+<td>description</td>
+<td>optional</td>
+</tr>
+<tr>
+<td>fields</td>
+<td>JSON array — the form definition</td>
+</tr>
+<tr>
+<td>created_at</td>
+<td>timestamp</td>
+</tr>
+</tbody>
+</table>
+<p><strong>participants</strong> — eligible people (one token each)</p>
+<table>
+<thead>
+<tr>
+<th>column</th>
+<th>notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>token</td>
+<td>primary key (used in the personal link)</td>
+</tr>
+<tr>
+<td>reg_number</td>
+<td>registration / voter number (unique per event)</td>
+</tr>
+<tr>
+<td>full_name</td>
+<td>name</td>
+</tr>
+<tr>
+<td>email</td>
+<td><strong>the only email allowed to verify</strong></td>
+</tr>
+<tr>
+<td>used</td>
+<td>0/1 — set to 1 after submission</td>
+</tr>
+<tr>
+<td>event_id</td>
+<td>which event</td>
+</tr>
+<tr>
+<td>extra</td>
+<td>JSON of the full uploaded row</td>
+</tr>
+<tr>
+<td>created_at</td>
+<td>timestamp</td>
+</tr>
+</tbody>
+</table>
+<p><strong>responses</strong> — one row per submission</p>
+<table>
+<colgroup>
+<col style="width: 63%" />
+<col style="width: 36%" />
+</colgroup>
+<thead>
+<tr>
+<th>column</th>
+<th>notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>token</td>
+<td>participant token</td>
+</tr>
+<tr>
+<td>reg_number, full_name</td>
+<td>copied</td>
+</tr>
+<tr>
+<td>gender, phone, year_of_study, sports, football_position,
+other_position</td>
+<td>common legacy columns</td>
+</tr>
+<tr>
+<td>data</td>
+<td>JSON of <strong>all</strong> answers (flexible fields)</td>
+</tr>
+<tr>
+<td>event_id</td>
+<td>which event</td>
+</tr>
+<tr>
+<td>submitted_at</td>
+<td>timestamp</td>
+</tr>
+</tbody>
+</table>
+<p><strong>otps</strong> — one-time codes</p>
+<table>
+<thead>
+<tr>
+<th>column</th>
+<th>notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>token, email</td>
+<td>who it belongs to</td>
+</tr>
+<tr>
+<td>otp</td>
+<td>6-digit code</td>
+</tr>
+<tr>
+<td>expires_at</td>
+<td>10 minutes after creation</td>
+</tr>
+<tr>
+<td>verified</td>
+<td>0/1 (single-use)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h1 id="end-to-end-flow">6. End-to-end flow</h1>
+<h2 id="administrator-flow">6.1 Administrator flow</h2>
+<pre><code> 1. Open admin page (admin key required)
+        │
+ 2. Create or select an event
+        │
+ 3. Build the form fields
+    (visual builder: add fields, types, options)
+        │
+ 4. Upload the eligible-participants file
+    (CSV / TSV / Excel)
+    → columns auto-detected: reg/voter no, name, email
+    → optional: also use these columns as the form fields
+        │
+ 5. System generates one personal token per participant
+        │
+ 6. Export the tokens CSV / send each student their link
+        │
+ 7. Monitor responses, charts, export CSV / PDF
+        │
+ 8. (Optional) Duplicate the event for the next campaign</code></pre>
+<h2 id="student-flow">6.2 Student flow</h2>
+<pre><code> Personal link  …/s?token=XXXX
+        │
+        ▼
+ [Token checked]  invalid?  → &quot;Invalid link&quot;
+        │          already used? → &quot;Already submitted&quot;
+        ▼
+ Step 1: email shown (locked)  →  &quot;Send verification code&quot;
+        │
+        ▼
+ Email inbox  ←  6-digit OTP (10-min, single-use)
+        │
+        ▼
+ Step 2: enter code → verified
+        │
+        ▼
+ Step 3: fill the event form → Submit
+        │
+        ▼
+ Response saved · token + code become unusable</code></pre>
+<h2 id="request-flow-technical">6.3 Request flow (technical)</h2>
+<pre><code> Student browser                      Server (Node/Express)
+ ───────────────                      ─────────────────────
+ GET /s?token=…          ───────►     look up participant
+                                       ├─ not found → 404
+                                       ├─ used      → 410
+                                       └─ ok        → render form (fields from event)
+
+ POST /api/auth/request-otp ─────►    createOTP(token,email):
+   { token, email }                     ├─ email must equal the registered email
+                                        ├─ generate 6-digit code (10 min)
+                                        └─ send via email API
+                                       ◄── { ok:true } or 400/502
+
+ POST /api/auth/verify-otp  ─────►    verifyOTP(): match + not expired + mark used
+                                       ◄── { verified:true } or 400
+
+ POST /api/submit           ─────►    submitResponse():
+   { token, email, answers }            ├─ must have a verified OTP
+                                        ├─ save answers (JSON + columns)
+                                        └─ mark token used
+                                       ◄── { ok:true } or 400/409</code></pre>
+<hr />
+<h1 id="administrator-guide">7. Administrator guide</h1>
+<p>Open the admin page. The <strong>key</strong> can be embedded in the
+URL so you don’t retype it:</p>
+<pre><code>https://&lt;your-app&gt;/admin.html?key=&lt;ADMIN_KEY&gt;</code></pre>
+<p>A <strong>✓ connected / ✗ invalid key</strong> indicator shows
+top-right. A red banner appears if the key is wrong.</p>
+<h2 id="create-select-an-event">7.1 Create / select an event</h2>
+<p>Use the <strong>event dropdown</strong> to switch events. <strong>+
+New Event</strong> creates one (slug + title). <strong>Duplicate
+Form</strong> copies the selected event’s form fields (optionally its
+participants with fresh tokens). <strong>Delete Event</strong> removes
+the event with all its participants and responses.</p>
+<h2 id="build-the-form">7.2 Build the form</h2>
+<p>In <strong>2. Build the form students fill</strong>: - <strong>+ Add
+field</strong> → each row: Name (key), Label, Type, Required, Options. -
+Types:
+<code>text, textarea, number, email, tel, date, select, radio, multiselect</code>.
+- For dropdowns/checkboxes put choices in <strong>Options</strong>,
+separated by <code>|</code> (e.g. <code>Male|Female</code>). -
+<strong>Load Dean’s Cup default</strong> restores the built-in 8-field
+form. - <strong>Upload fields file (CSV/JSON)</strong> loads a template;
+<strong>Download template CSV</strong>. - <strong>Save form for this
+event</strong> persists it. <strong>Preview</strong> shows how students
+see it.</p>
+<h2 id="upload-participants">7.3 Upload participants</h2>
+<p>In <strong>1. Upload participants</strong>: - <strong>Choose
+file</strong> (CSV / TSV / Excel) then <strong>Upload &amp; Generate
+Tokens</strong>. - Columns are auto-detected: registration/voter number,
+name, email. - Tick <strong>“Also replace the form fields with these CSV
+columns”</strong> if you want the form questions to mirror your file’s
+columns. - A warning appears if <strong>no email column</strong> is
+found (those people can’t verify).</p>
+<p>Required logical columns: a <strong>registration/voter
+number</strong>, a <strong>name</strong>, and an <strong>email</strong>.
+Extra columns are stored too.</p>
+<h2 id="distribute-links">7.4 Distribute links</h2>
+<p>In <strong>3. Participants &amp; Personal Links</strong>, each row
+shows the personal link and an <strong>Email</strong> column.
+<strong>Export tokens CSV</strong> to get every link. Send each person
+<strong>only their own</strong> link.</p>
+<h2 id="monitor-export">7.5 Monitor &amp; export</h2>
+<p>In <strong>4. Responses</strong>: the table shows all answers.
+Buttons: - <strong>Download responses CSV</strong> — one column per form
+field. - <strong>Download PDF</strong> — a landscape PDF table of all
+responses. Charts below are generated automatically from each
+<code>select</code>/<code>radio</code>/<code>multiselect</code> field,
+plus a submissions-over-time chart.</p>
+<hr />
+<h1 id="student-guide">8. Student guide</h1>
+<ol type="1">
+<li>Open your <strong>personal link</strong>
+(<code>…/s?token=…</code>).</li>
+<li>Your <strong>registered email</strong> is shown (you cannot change
+it). Click <strong>Send verification code</strong>.</li>
+<li>Check your inbox (and spam) for a <strong>6-digit code</strong>;
+enter it and click <strong>Verify</strong>.</li>
+<li>Fill the form and click <strong>Submit</strong>. You’ll see a
+confirmation.</li>
+<li>That’s it — the link cannot be used again.</li>
+</ol>
+<blockquote>
+<p>The code expires after <strong>10 minutes</strong>. You may click
+<em>Send verification code</em> again to get a new one.</p>
+</blockquote>
+<hr />
+<h1 id="email-otp-setup">9. Email (OTP) setup</h1>
+<p>Real email requires an <strong>HTTP email API</strong> because Render
+(and many hosts) <strong>block outbound SMTP ports
+(25/465/587)</strong>. The app supports <strong>Brevo</strong>
+(recommended free tier: 300/day), <strong>SendGrid</strong>,
+<strong>Resend</strong>, plus plain <strong>SMTP</strong> for hosts that
+allow it.</p>
+<p><strong>Brevo quick start</strong> 1. Create a free Brevo account. 2.
+<strong>Senders</strong> → add and <strong>verify</strong> the sender
+email. 3. <strong>SMTP &amp; API → API Keys</strong> → create an API key
+(starts with <code>xkeysib-</code>). 4. <strong>Security → Authorised
+IPs</strong> → <strong>disable</strong> the IP restriction (Render’s IPs
+change). 5. Set the environment variables (see §10).</p>
+<p>If email is <strong>not</strong> configured, the app runs in
+<strong>demo mode</strong> and shows the code on screen (never use demo
+mode for real events).</p>
+<hr />
+<h1 id="deployment-configuration">10. Deployment &amp;
+configuration</h1>
+<h2 id="environment-variables">10.1 Environment variables</h2>
+<table>
+<colgroup>
+<col style="width: 65%" />
+<col style="width: 34%" />
+</colgroup>
+<thead>
+<tr>
+<th>variable</th>
+<th>purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PORT</code></td>
+<td>server port (host-provided on Render)</td>
+</tr>
+<tr>
+<td><code>ADMIN_KEY</code></td>
+<td>secret for all admin actions — set a strong value</td>
+</tr>
+<tr>
+<td><code>DATABASE_URL</code></td>
+<td>PostgreSQL URL (recommended). If unset → SQLite</td>
+</tr>
+<tr>
+<td><code>SQLITE_FILE</code></td>
+<td>SQLite path (when no <code>DATABASE_URL</code>)</td>
+</tr>
+<tr>
+<td><code>EMAIL_PROVIDER</code></td>
+<td><code>brevo</code> / <code>sendgrid</code> / <code>resend</code> /
+<code>smtp</code></td>
+</tr>
+<tr>
+<td><code>BREVO_API_KEY</code></td>
+<td>Brevo API key (<code>xkeysib-…</code>)</td>
+</tr>
+<tr>
+<td><code>SENDGRID_API_KEY</code> / <code>RESEND_API_KEY</code></td>
+<td>alternative providers</td>
+</tr>
+<tr>
+<td><code>EMAIL_FROM</code></td>
+<td>sender, e.g. <code>Dean&#39;s Cup &lt;no-reply@domain&gt;</code></td>
+</tr>
+<tr>
+<td><code>APP_NAME</code></td>
+<td>name shown in emails</td>
+</tr>
+<tr>
+<td><code>SMTP_HOST/PORT/SECURE/USER/PASS/FROM</code></td>
+<td>only where SMTP ports are open</td>
+</tr>
+</tbody>
+</table>
+<h2 id="render">10.2 Render</h2>
+<ul>
+<li>The repo contains <code>render.yaml</code>. Create a
+<strong>Blueprint</strong> from the repo, or a <strong>Web
+Service</strong> with build <code>npm install</code> and start
+<code>node --experimental-sqlite server.js</code>.</li>
+<li>Add a <strong>PostgreSQL</strong> instance and set
+<code>DATABASE_URL</code> to its <strong>internal</strong> URL so data
+persists across deploys.</li>
+<li>Set <code>ADMIN_KEY</code>, <code>EMAIL_PROVIDER=brevo</code>,
+<code>BREVO_API_KEY</code>, <code>EMAIL_FROM</code>.</li>
+</ul>
+<h2 id="docker-vps">10.3 Docker / VPS</h2>
+<pre><code>docker compose up -d</code></pre>
+<p>Uses the included <code>Dockerfile</code> and
+<code>docker-compose.yml</code> (SQLite on a volume, or Postgres if you
+set <code>DATABASE_URL</code>).</p>
+<hr />
+<h1 id="api-reference">11. API reference</h1>
+<p>Admin endpoints require the key via header
+<code>X-Admin-Key: &lt;key&gt;</code> or query <code>?key=</code>.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Method &amp; path</th>
+<th>Auth</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /</code></td>
+<td>–</td>
+<td>Home page listing events</td>
+</tr>
+<tr>
+<td><code>GET /api/events</code></td>
+<td>–</td>
+<td>List events</td>
+</tr>
+<tr>
+<td><code>GET /api/events/:slug/fields</code></td>
+<td>–</td>
+<td>Form fields for an event</td>
+</tr>
+<tr>
+<td><code>POST /api/admin/events</code></td>
+<td>✔</td>
+<td>Create event <code>{slug,title,description}</code></td>
+</tr>
+<tr>
+<td><code>DELETE /api/admin/events/:slug</code></td>
+<td>✔</td>
+<td>Delete event (+ participants/responses)</td>
+</tr>
+<tr>
+<td><code>POST /api/admin/events/:slug/duplicate</code></td>
+<td>✔</td>
+<td>Duplicate <code>{newSlug,newTitle,copyParticipants}</code></td>
+</tr>
+<tr>
+<td><code>GET /api/admin/fields?event=</code></td>
+<td>✔</td>
+<td>Get form fields</td>
+</tr>
+<tr>
+<td><code>POST /api/admin/fields</code></td>
+<td>✔</td>
+<td>Save fields <code>{event, fields:[…]}</code></td>
+</tr>
+<tr>
+<td><code>GET /api/admin/fields/sample.csv</code></td>
+<td>✔</td>
+<td>Download a fields template</td>
+</tr>
+<tr>
+<td><code>POST /api/admin/import?event=</code></td>
+<td>✔</td>
+<td>Import
+<code>{participants:[{reg_number,full_name,email,…}]}</code></td>
+</tr>
+<tr>
+<td><code>GET /api/admin/participants?event=</code></td>
+<td>✔</td>
+<td>List participants (with tokens)</td>
+</tr>
+<tr>
+<td><code>DELETE /api/admin/participants/:token</code></td>
+<td>✔</td>
+<td>Delete a participant (+ response)</td>
+</tr>
+<tr>
+<td><code>GET /api/admin/responses?event=</code></td>
+<td>✔</td>
+<td>List responses</td>
+</tr>
+<tr>
+<td><code>GET /api/admin/stats?event=</code></td>
+<td>✔</td>
+<td>Aggregated chart data</td>
+</tr>
+<tr>
+<td><code>GET /api/admin/export?event=</code></td>
+<td>✔</td>
+<td>Download responses CSV</td>
+</tr>
+<tr>
+<td><code>POST /api/auth/request-otp</code></td>
+<td>–</td>
+<td><code>{token,email}</code> → send code</td>
+</tr>
+<tr>
+<td><code>POST /api/auth/verify-otp</code></td>
+<td>–</td>
+<td><code>{token,email,otp}</code> → verify</td>
+</tr>
+<tr>
+<td><code>GET /s?token=</code></td>
+<td>–</td>
+<td>Student form</td>
+</tr>
+<tr>
+<td><code>POST /api/submit</code></td>
+<td>–</td>
+<td><code>{token,email,answers}</code> → save response</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h1 id="security-model">12. Security model</h1>
+<ul>
+<li><strong>No public form.</strong> Entry requires a token that only
+the admin can produce.</li>
+<li><strong>Allow-list of emails.</strong> A code is sent
+<strong>only</strong> to the email uploaded for that participant; other
+emails are rejected.</li>
+<li><strong>Email verification.</strong> Proves the person controls the
+registered mailbox.</li>
+<li><strong>Single-use.</strong> Each token and each OTP code works
+once.</li>
+<li><strong>Admin key.</strong> Protects all management actions.</li>
+<li><strong>HTTPS</strong> on Render; secrets stored as environment
+variables, not in code.</li>
+<li><strong>What it is not:</strong> a password vault. The system
+<strong>never</strong> asks for an email password — only a one-time
+code.</li>
+</ul>
+<p>Recommended hardening for production: use a long random
+<code>ADMIN_KEY</code>, keep the email API key secret, and (optionally)
+add rate-limiting on OTP requests.</p>
+<hr />
+<h1 id="csv-file-formats-column-detection">13. CSV / file formats &amp;
+column detection</h1>
+<p>Accepts <strong>CSV</strong>, <strong>TSV</strong>, <strong>semicolon
+CSV</strong>, and <strong>Excel (.xlsx/.xls)</strong>.</p>
+<p>Column headers are matched flexibly:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Logical field</th>
+<th>Recognised headers (examples)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Registration / voter number</td>
+<td><code>reg</code>, <code>reg no</code>,
+<code>registration number</code>, <code>matric</code>,
+<code>voter number</code>, <code>voter no</code>, <code>id</code>,
+<code>number</code>, <code>no</code>, <code>code</code></td>
+</tr>
+<tr>
+<td>Name</td>
+<td><code>full name</code>, <code>name</code>, <code>voter</code>,
+<code>student</code></td>
+</tr>
+<tr>
+<td>Email</td>
+<td><code>email</code>, <code>e-mail</code>, <code>mail</code></td>
+</tr>
+</tbody>
+</table>
+<p>Example participant file:</p>
+<pre><code>Voter Number,Voter,Email
+262101010943,ELAJU AARON,elaju@soroti.ac.ug
+262101030491,OPOLOT AARON,opolot@soroti.ac.ug</code></pre>
+<p>Form-field template (for the <strong>Upload fields file</strong>
+option):</p>
+<pre><code>name,label,type,required,options
+full_name,Full Name,text,yes,
+gender,Gender,select,yes,Male|Female
+sports,Sports,multiselect,yes,Football|Chess|Swimming
+comments,Comments,textarea,no,</code></pre>
+<hr />
+<h1 id="troubleshooting">14. Troubleshooting</h1>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Cause / fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>“Invalid admin key” banner</td>
+<td>Wrong key. Open <code>admin.html?key=&lt;ADMIN_KEY&gt;</code> or
+type the key and <strong>Save</strong>.</td>
+</tr>
+<tr>
+<td>Upload does nothing</td>
+<td>You didn’t pick a file, or the key is wrong. Watch the message under
+the button.</td>
+</tr>
+<tr>
+<td>“No email column detected”</td>
+<td>Your file has no email column — students can’t verify. Add an email
+column.</td>
+</tr>
+<tr>
+<td>Code not received</td>
+<td>Check spam; confirm <code>EMAIL_FROM</code> is a
+<strong>verified</strong> sender; Brevo: disable IP restriction; check
+server logs.</td>
+</tr>
+<tr>
+<td>“This email is not registered for this link”</td>
+<td>The typed email ≠ the uploaded email. Use the registered one.</td>
+</tr>
+<tr>
+<td>“No email is registered for this link”</td>
+<td>That participant row has no email. Re-import with emails.</td>
+</tr>
+<tr>
+<td>“Already submitted”</td>
+<td>The token was used. Issue a new link/participant.</td>
+</tr>
+<tr>
+<td>Data disappears after deploy</td>
+<td>No <code>DATABASE_URL</code> set (SQLite on ephemeral storage).
+Attach Postgres.</td>
+</tr>
+<tr>
+<td>Email works locally but not on Render</td>
+<td>SMTP ports are blocked — use an HTTP email API
+(Brevo/SendGrid/Resend).</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h1 id="local-development">15. Local development</h1>
+<pre><code>npm install
+npm start          # http://localhost:3002  (admin.html?key=admin123)</code></pre>
+<p>Without email variables the app runs in <strong>demo mode</strong>
+(code shown on screen). Set the email variables in a <code>.env</code>
+file (see <code>.env.example</code>) to send real mail.</p>
+<hr />
+<p><em>End of manual.</em></p>
+</body>
+</html>
