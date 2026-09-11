@@ -41,6 +41,13 @@ app.post('/api/admin/events', requireAdmin, async (req, res, next) => {
 app.delete('/api/admin/events/:slug', requireAdmin, async (req, res, next) => {
   try { await db.deleteEvent(req.params.slug); res.json({ ok: true }); } catch (e) { next(e); }
 });
+app.post('/api/admin/events/:slug/duplicate', requireAdmin, async (req, res, next) => {
+  try {
+    const { newSlug, newTitle, copyParticipants } = req.body || {};
+    if (!newSlug) return res.status(400).json({ error: 'newSlug required' });
+    res.json(await db.duplicateEvent(req.params.slug, newSlug, newTitle, !!copyParticipants));
+  } catch (e) { next(e); }
+});
 app.delete('/api/admin/participants/:token', requireAdmin, async (req, res, next) => {
   try { await db.deleteParticipant(req.params.token); res.json({ ok: true }); } catch (e) { next(e); }
 });

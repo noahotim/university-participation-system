@@ -35,6 +35,7 @@
     <div class="flex gap-2">
       <select id="eventSel" class="border rounded-lg px-3 py-2 text-sm" onchange="onEventChange()"></select>
       <button onclick="createEventPrompt()" class="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm">+ New Event</button>
+      <button onclick="duplicateEventPrompt()" class="bg-violet-600 text-white px-4 py-2 rounded-lg text-sm">Duplicate Form</button>
       <button onclick="deleteEventPrompt()" class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm">Delete Event</button>
     </div>
   </div>
@@ -370,6 +371,16 @@ async function deleteEventPrompt(){
   const r=await fetch('/api/admin/events/'+encodeURIComponent(slug),{method:'DELETE',headers:authHeaders()});
   const j=await r.json(); if(!r.ok) return alert(j.error||'Error');
   await loadEvents(); onEventChange();
+}
+async function duplicateEventPrompt(){
+  const src=currentEvent();
+  const slug=prompt('New event slug (a short unique id):', src+'-copy'); if(!slug) return;
+  const title=prompt('New event title:', slug); if(!title) return;
+  const copy=confirm('Copy the form fields' + '\n\nClick OK to ALSO copy the current participants (with fresh unused tokens).\nClick Cancel to copy the form only.');
+  const r=await fetch('/api/admin/events/'+encodeURIComponent(src)+'/duplicate',{method:'POST',headers:authHeaders(),body:JSON.stringify({newSlug:slug,newTitle:title,copyParticipants:copy})});
+  const j=await r.json(); if(!r.ok) return alert(j.error||'Error');
+  await loadEvents(); document.getElementById('eventSel').value=slug; onEventChange();
+  alert('Created form "'+slug+'"'+(j.copied?(' with '+j.copied+' participants (fresh tokens)'):' (fields only)')+'.');
 }
 
 // ---------- participants list ----------

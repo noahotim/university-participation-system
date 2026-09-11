@@ -221,6 +221,37 @@ async function deleteParticipant(token) {
   sqlite.prepare('DELETE FROM participants WHERE token=?').run(token);
 }
 
+async function duplicateEvent(sourceSlug, newSlug, newTitle, copyParticipants) {
+  const src = await getEventId(sourceSlug);
+  if (src == null) throw new Error('Source event not found');
+  const fields = await getEventFields(sourceSlug);
+  let newId = await getEventId(newSlug);
+  if (newId == null) {
+    const ev = await createEvent(newSlug, newTitle || newSlug, '', fields);
+    newId = ev.id;
+  } else {
+    await setEventFields(newSlug, fields);
+  }
+  let copied = 0;
+  if (copyParticipants) {
+    const parts = await listParticipants(sourceSlug);
+    for (const p of parts) {
+      const token = crypto.randomBytes(16).toString('hex');
+      if (backend === 'postgres') {
+        const ex = await pgPool.query('SELECT token FROM participants WHERE reg_number=$1 AND event_id=$2', [p.reg_number, newId]);
+        if (ex.rows.length && ex.rows[0].token) continue;
+        await pgPool.query('INSERT INTO participants(token, reg_number, full_name, email, used, event_id, extra, created_at) VALUES($1,$2,$3,$4,0,$5,$6,$7)', [token, p.reg_number, p.full_name, p.email || '', newId, null, new Date().toISOString()]);
+      } else {
+        const ex = sqlite.prepare('SELECT token FROM participants WHERE reg_number=? AND event_id=?').get(p.reg_number, newId);
+        if (ex && ex.token) continue;
+        sqlite.prepare('INSERT INTO participants(token, reg_number, full_name, email, used, event_id, extra, created_at) VALUES(?,?,?,?,0,?,?,?)').run(token, p.reg_number, p.full_name, p.email || '', newId, null, new Date().toISOString());
+      }
+      copied++;
+    }
+  }
+  return { slug: newSlug, id: newId, copied };
+}
+
 async function getEventFields(slug) {
   const s = slug || 'deans-cup-2026';
   let raw = null;
@@ -442,4 +473,4 @@ async function getStats(eventSlug) {
   return { total: responses.length, byYear, byGender, bySport, byFootball, byField, fieldLabels, timeline };
 }
 
-module.exports = { DEFAULT_FIELDS, init, listEvents, createEvent, deleteEvent, getEventId, ensureEvent, getEventFields, getEventFieldsById, setEventFields, importParticipants, getParticipantByToken, listParticipants, deleteParticipant, submitResponse, listResponses, createOTP, verifyOTP, hasVerifiedOTP, getStats };
+module.exports = { DEFAULT_FIELDS, init, listEvents, createEvent, deleteEvent, duplicateEvent, getEventId, ensureEvent, getEventFields, getEventFieldsById, setEventFields, importParticipants, getParticipantByToken, listParticipants, deleteParticipant, submitResponse, listResponses, createOTP, verifyOTP, hasVerifiedOTP, getStats };
