@@ -185,10 +185,10 @@ async function getEventFields(slug) {
   let raw = null;
   if (backend === 'postgres') {
     const { rows } = await pgPool.query('SELECT fields FROM events WHERE slug=$1', [s]);
-    raw = rows[0] ? rows[0].fields : null;
+    raw = (rows[0] && rows[0].fields) ? rows[0].fields : null;
   } else {
     const row = sqlite.prepare('SELECT fields FROM events WHERE slug=?').get(s);
-    raw = (row && row.id !== undefined) ? row.fields : (row ? row.fields : null);
+    raw = (row && row.fields) ? row.fields : null;
   }
   if (!raw) return DEFAULT_FIELDS;
   try { const p = JSON.parse(raw); return Array.isArray(p) && p.length ? p : DEFAULT_FIELDS; } catch { return DEFAULT_FIELDS; }
@@ -198,10 +198,10 @@ async function getEventFieldsById(eventId) {
   let raw = null;
   if (backend === 'postgres') {
     const { rows } = await pgPool.query('SELECT fields FROM events WHERE id=$1', [eventId]);
-    raw = rows[0] ? rows[0].fields : null;
+    raw = (rows[0] && rows[0].fields) ? rows[0].fields : null;
   } else {
     const row = sqlite.prepare('SELECT fields FROM events WHERE id=?').get(eventId);
-    raw = row ? row.fields : null;
+    raw = (row && row.fields) ? row.fields : null;
   }
   if (!raw) return DEFAULT_FIELDS;
   try { const p = JSON.parse(raw); return Array.isArray(p) && p.length ? p : DEFAULT_FIELDS; } catch { return DEFAULT_FIELDS; }
@@ -211,10 +211,14 @@ async function setEventFields(slug, fields) {
   const json = typeof fields === 'string' ? fields : JSON.stringify(fields);
   const s = slug || 'deans-cup-2026';
   if (backend === 'postgres') {
-    await pgPool.query('UPDATE events SET fields=$1 WHERE slug=$2', [json, s]);
+    const { rows } = await pgPool.query('SELECT id FROM events WHERE slug=$1', [s]);
+    if (!rows.length) await pgPool.query('INSERT INTO events(slug, title, description, fields, created_at) VALUES($1,$2,$3,$4,$5)', [s, s, '', json, new Date().toISOString()]);
+    else await pgPool.query('UPDATE events SET fields=$1 WHERE slug=$2', [json, s]);
     return;
   }
-  sqlite.prepare('UPDATE events SET fields=? WHERE slug=?').run(json, s);
+  const ex = sqlite.prepare('SELECT id FROM events WHERE slug=?').get(s);
+  if (!ex || ex.id == null) sqlite.prepare('INSERT INTO events(slug, title, description, fields, created_at) VALUES(?,?,?,?,?)').run(s, s, '', json, new Date().toISOString());
+  else sqlite.prepare('UPDATE events SET fields=? WHERE slug=?').run(json, s);
 }
 
 async function importParticipants(rows, eventSlug) {
