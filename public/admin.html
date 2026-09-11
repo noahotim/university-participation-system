@@ -4,6 +4,8 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 </head><body class="bg-slate-50 min-h-screen">
 <div class="bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 text-white">
   <div class="max-w-6xl mx-auto px-6 py-6 flex flex-wrap items-center justify-between gap-4">
@@ -54,6 +56,7 @@
       <button onclick="importFile()" class="bg-indigo-600 text-white px-5 py-2 rounded-xl font-semibold">Upload & Generate Tokens</button>
       <a href="/demo-currently-enrolled.csv" class="text-indigo-600 text-sm underline">Download sample CSV</a>
     </div>
+    <label class="mt-3 flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" id="autoFields" checked> Also replace the form fields with these CSV columns (labels match your file)</label>
     <details class="mt-3"><summary class="text-sm text-slate-500 cursor-pointer">or paste CSV text</summary>
       <textarea id="csv" class="mt-2 w-full h-32 border rounded-xl p-3 font-mono text-sm" placeholder="reg_number,full_name,email"></textarea>
       <button onclick="importPasted()" class="mt-2 bg-slate-100 px-5 py-2 rounded-xl text-sm">Import pasted text</button>
@@ -111,6 +114,7 @@
       <div class="flex gap-2">
         <button onclick="loadResponses()" class="border px-4 py-2 rounded-xl text-sm">Refresh</button>
         <a id="exportLink" href="#" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm inline-block">Download responses CSV</a>
+        <button onclick="downloadResponsesPdf()" class="bg-red-600 text-white px-4 py-2 rounded-xl text-sm">Download PDF</button>
       </div>
     </div>
     <div id="responses" class="mt-4 overflow-auto"></div>
@@ -197,6 +201,26 @@ function matrixToParticipants(matrix){
   }
   return {rows,columns:header};
 }
+function slugKey(s){ return String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'') || 'field'; }
+function fieldsFromColumns(columns){
+  const seen={}, out=[];
+  for(const col of (columns||[])){
+    const label=String(col==null?'':col).trim(); if(!label) continue;
+    const l=label.toLowerCase();
+    if(/e-?mail/.test(l)) continue;           // email is handled by OTP verification
+    let name=slugKey(label); if(seen[name]){ seen[name]++; name=name+'_'+seen[name]; } else seen[name]=1;
+    let type='text';
+    if(/phone|mobile|\btel\b|contact/.test(l)) type='tel';
+    else if(/date|dob|birth/.test(l)) type='date';
+    else if(/notes?|comments?|remarks?|description|address/.test(l)) type='textarea';
+    else if(/\bage\b|amount|number|qty|count/.test(l) && !/reg/.test(l)) type='number';
+    const f={ name, label, type, required:false, options:[] };
+    if(/reg/.test(l)){ f.required=true; f.prefill='reg_number'; f.readonly=true; }
+    else if(/name/.test(l)){ f.required=true; f.prefill='full_name'; }
+    out.push(f);
+  }
+  return out;
+}
 async function importRows(rows, columns){
   const imsg=document.getElementById('imsg');
   if(!rows.length){ imsg.innerHTML='<span class="text-red-600">No data rows found'+(columns&&columns.length?'. Detected columns: '+esc(columns.join(', ')):'')+'.</span>'; return; }
@@ -206,6 +230,11 @@ async function importRows(rows, columns){
   if(r.status===401){ keyBad(); imsg.innerHTML='<span class="text-red-600">Invalid admin key - enter the correct key (top-right) and click Save.</span>'; return; }
   if(!r.ok){ imsg.innerHTML='<span class="text-red-600">'+(j.error||'Error')+'</span>'; return; }
   imsg.innerHTML='<span class="text-green-600">Created '+j.imported+' token(s)'+(j.exists?', '+j.exists+' already existed':'')+(j.skipped?', skipped '+j.skipped:'')+'.</span> <span class="text-slate-500 text-xs">Columns: '+esc((columns||[]).join(', '))+'</span>';
+  const auto=document.getElementById('autoFields');
+  if(auto && auto.checked && columns && columns.length){
+    const gen=fieldsFromColumns(columns);
+    if(gen.length){ await fetch('/api/admin/fields',{method:'POST',headers:authHeaders(),body:JSON.stringify({event:currentEvent(),fields:gen})}); await loadFields(); imsg.innerHTML+=' <span class="text-indigo-600 text-xs">Form fields set from CSV columns.</span>'; }
+  }
   loadAll();
 }
 async function importFile(){
@@ -374,6 +403,28 @@ async function loadResponses(){
     html+='<tr class="border-t align-top"><td class="p-2">'+esc(x.reg_number)+'</td><td class="p-2">'+esc(x.full_name)+'</td><td class="p-2 text-xs">'+(ans||'-')+'</td><td class="p-2 text-xs">'+String(x.submitted_at).slice(0,19).replace('T',' ')+'</td></tr>';
   }
   html+='</tbody></table>'; document.getElementById('responses').innerHTML=html;
+}
+async function downloadResponsesPdf(){
+  try{
+    if(!window.jspdf){ alert('PDF library not loaded (check your connection) and try again.'); return; }
+    const responses=await fetch('/api/admin/responses?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(currentEvent())).then(r=>r.json());
+    const fields=await fetch('/api/admin/fields?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(currentEvent())).then(r=>r.json());
+    const evs=await fetch('/api/events').then(r=>r.json());
+    const ev=evs.find(e=>e.slug===currentEvent());
+    const title=(ev&&ev.title)||'Responses';
+    const { jsPDF }=window.jspdf;
+    const doc=new jsPDF({orientation:'landscape',unit:'pt'});
+    doc.setFontSize(15); doc.text(title, 40, 40);
+    doc.setFontSize(9); doc.setTextColor(120);
+    doc.text('Event: '+currentEvent()+'   |   Responses: '+responses.length+'   |   Generated: '+new Date().toLocaleString(), 40, 58);
+    const head=[['Reg No','Full Name', ...fields.map(f=>f.label)]];
+    const body=responses.map(r=>{ let a={}; try{ a=r.data?JSON.parse(r.data):{}; }catch{}
+      return [r.reg_number, r.full_name, ...fields.map(f=>{ const v=a[f.name]; return Array.isArray(v)?v.join(', '):(v==null?'':String(v)); })];
+    });
+    if(!body.length) body.push(['No responses yet','','']);
+    doc.autoTable({ head, body, startY:74, styles:{fontSize:8, cellPadding:3, overflow:'linebreak'}, headStyles:{fillColor:[79,70,229]}, theme:'grid' });
+    doc.save('responses-'+currentEvent()+'.pdf');
+  }catch(e){ alert('PDF failed: '+e.message); }
 }
 
 // ---------- charts (dynamic based on this event's fields) ----------
