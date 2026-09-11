@@ -3,6 +3,7 @@
 <title>University Participation System - Admin</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head><body class="bg-slate-50 min-h-screen">
 <div class="bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 text-white">
   <div class="max-w-6xl mx-auto px-6 py-6 flex flex-wrap items-center justify-between gap-4">
@@ -12,14 +13,18 @@
     </div>
     <div class="flex items-center gap-2 bg-white/10 backdrop-blur rounded-xl px-3 py-2">
       <span class="text-sm">Admin key</span>
-      <input id="key" type="password" value="admin123" class="bg-white text-slate-800 rounded-lg px-3 py-1.5 text-sm w-32">
+      <input id="key" type="password" value="" placeholder="paste admin key" class="bg-white text-slate-800 rounded-lg px-3 py-1.5 text-sm w-40">
       <button onclick="saveKey()" class="bg-white text-indigo-700 px-4 py-1.5 rounded-lg text-sm font-semibold">Save</button>
       <span id="kmsg" class="text-xs"></span>
+      <span id="kstatus" class="text-xs"></span>
     </div>
   </div>
 </div>
 
 <div class="max-w-6xl mx-auto px-6 py-6 space-y-6">
+  <div id="keyBanner" class="hidden bg-red-50 border border-red-300 text-red-800 rounded-xl p-4 text-sm">
+    <b>Invalid admin key.</b> Enter the correct key in the top-right box and click <b>Save</b>. Tip: you can open this page with the key in the URL, e.g. <code>admin.html?key=YOUR_KEY</code>.
+  </div>
   <div class="bg-white border border-indigo-100 rounded-2xl p-5 shadow-sm flex flex-wrap gap-4 items-center justify-between">
     <div>
       <h2 class="font-bold">General System</h2>
@@ -44,7 +49,8 @@
     <h2 class="text-lg font-bold">1. Upload participants (currently-enrolled students)</h2>
     <p class="text-sm text-slate-600 mt-1">Choose a CSV file from your computer. Required columns: <code class="bg-slate-100 px-1 rounded">reg_number, full_name, email</code>. Extra columns are stored too.</p>
     <div class="mt-3 flex flex-wrap items-center gap-3">
-      <input id="partFile" type="file" accept=".csv,text/csv" class="block text-sm border rounded-lg p-2 bg-slate-50">
+      <input id="partFile" type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,text/csv" onchange="document.getElementById('partFileName').textContent=this.files[0]?('Selected: '+this.files[0].name):''" class="block text-sm border rounded-lg p-2 bg-slate-50">
+      <span id="partFileName" class="text-xs text-slate-500"></span>
       <button onclick="importFile()" class="bg-indigo-600 text-white px-5 py-2 rounded-xl font-semibold">Upload & Generate Tokens</button>
       <a href="/demo-currently-enrolled.csv" class="text-indigo-600 text-sm underline">Download sample CSV</a>
     </div>
@@ -115,9 +121,17 @@
 </div>
 
 <script>
-let ADMIN_KEY = localStorage.getItem('admin_key') || 'admin123';
+const _urlKey = new URLSearchParams(location.search).get('key');
+if (_urlKey) localStorage.setItem('admin_key', _urlKey);
+let ADMIN_KEY = _urlKey || localStorage.getItem('admin_key') || '';
 document.getElementById('key').value = ADMIN_KEY;
-function saveKey(){ ADMIN_KEY=document.getElementById('key').value; localStorage.setItem('admin_key', ADMIN_KEY); document.getElementById('kmsg').textContent='Saved'; updateExportLink(); loadAll(); }
+function keyOk(){ const s=document.getElementById('kstatus'); if(s){ s.textContent='✓ connected'; s.className='text-xs text-green-200'; } document.getElementById('keyBanner').classList.add('hidden'); }
+function keyBad(){ const s=document.getElementById('kstatus'); if(s){ s.textContent='✗ invalid key'; s.className='text-xs text-red-200'; } document.getElementById('keyBanner').classList.remove('hidden'); }
+async function validateKey(){
+  if(!ADMIN_KEY){ keyBad(); return; }
+  try{ const r=await fetch('/api/admin/participants?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(currentEvent())); if(r.ok) keyOk(); else keyBad(); }catch{ keyBad(); }
+}
+function saveKey(){ ADMIN_KEY=document.getElementById('key').value.trim(); localStorage.setItem('admin_key', ADMIN_KEY); document.getElementById('kmsg').textContent='Saved'; updateExportLink(); validateKey().then(()=>loadFields().then(loadAll)); }
 function updateExportLink(){ const e=currentEvent(); document.getElementById('exportLink').href='/api/admin/export?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(e); }
 function authHeaders(){ return {'Content-Type':'application/json','X-Admin-Key':ADMIN_KEY}; }
 function currentEvent(){ return document.getElementById('eventSel').value || 'deans-cup-2026'; }
@@ -142,22 +156,71 @@ function rowsToObjects(text){
 }
 const fileToText = (file) => new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsText(file); });
 
-// ---------- 1. participants ----------
-async function importRows(rows){
+// ---------- 1. participants (CSV / TSV / Excel + flexible headers) ----------
+function parseDelimited(text){
+  const first=String(text||'').replace(/^\uFEFF/,'').split(/\r?\n/)[0]||'';
+  const tabs=(first.match(/\t/g)||[]).length, commas=(first.match(/,/g)||[]).length, semis=(first.match(/;/g)||[]).length;
+  if(tabs>commas && tabs>=semis) return String(text).replace(/^\uFEFF/,'').split(/\r?\n/).filter(l=>l.trim()!=='').map(l=>l.split('\t'));
+  if(semis>commas) return String(text).replace(/^\uFEFF/,'').split(/\r?\n/).filter(l=>l.trim()!=='').map(l=>l.split(';'));
+  return parseCsv(text);
+}
+async function fileToMatrix(file){
+  const nm=(file.name||'').toLowerCase();
+  if(nm.endsWith('.xlsx')||nm.endsWith('.xls')){
+    if(typeof XLSX==='undefined') throw new Error('Excel reader not loaded. Save as CSV and try again.');
+    const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(ws,{header:1,blankrows:false,defval:''});
+  }
+  return parseDelimited(await fileToText(file));
+}
+function matrixToParticipants(matrix){
+  const m=(matrix||[]).filter(r=>Array.isArray(r)&&r.some(c=>String(c==null?'':c).trim()!==''));
+  if(!m.length) return {rows:[],columns:[]};
+  const header=m[0].map(h=>String(h==null?'':h).trim());
+  const lower=header.map(h=>h.toLowerCase());
+  let ri=lower.findIndex(h=>/reg/.test(h));
+  let ni=lower.findIndex(h=>/name/.test(h));
+  let ei=lower.findIndex(h=>/e-?mail/.test(h));
+  if(ri<0) ri=0;
+  if(ni<0) ni=header.length>1?1:-1;
+  const rows=[];
+  for(let i=1;i<m.length;i++){
+    const r=m[i]||[];
+    const reg=ri>=0?String(r[ri]==null?'':r[ri]).trim():'';
+    const nm=ni>=0?String(r[ni]==null?'':r[ni]).trim():'';
+    const em=ei>=0?String(r[ei]==null?'':r[ei]).trim():'';
+    if(!reg&&!nm) continue;
+    const o={reg_number:reg, full_name:nm, email:em};
+    header.forEach((h,j)=>{ if(h) o[h]=r[j]==null?'':r[j]; });
+    rows.push(o);
+  }
+  return {rows,columns:header};
+}
+async function importRows(rows, columns){
   const imsg=document.getElementById('imsg');
-  if(!rows.length){ imsg.innerHTML='<span class="text-red-600">No rows found.</span>'; return; }
-  imsg.textContent='Importing '+rows.length+'...'; imsg.className='text-sm mt-2 text-slate-600';
+  if(!rows.length){ imsg.innerHTML='<span class="text-red-600">No data rows found'+(columns&&columns.length?'. Detected columns: '+esc(columns.join(', ')):'')+'.</span>'; return; }
+  imsg.textContent='Uploading '+rows.length+' rows...'; imsg.className='text-sm mt-2 text-slate-600';
   const r=await fetch('/api/admin/import?event='+encodeURIComponent(currentEvent()),{method:'POST',headers:authHeaders(),body:JSON.stringify({participants:rows})});
-  const j=await r.json();
+  const j=await r.json().catch(()=>({}));
+  if(r.status===401){ keyBad(); imsg.innerHTML='<span class="text-red-600">Invalid admin key - enter the correct key (top-right) and click Save.</span>'; return; }
   if(!r.ok){ imsg.innerHTML='<span class="text-red-600">'+(j.error||'Error')+'</span>'; return; }
-  imsg.innerHTML='<span class="text-green-600">Imported '+j.imported+' participants.</span>'; loadAll();
+  imsg.innerHTML='<span class="text-green-600">Created '+j.imported+' token(s)'+(j.exists?', '+j.exists+' already existed':'')+(j.skipped?', skipped '+j.skipped:'')+'.</span> <span class="text-slate-500 text-xs">Columns: '+esc((columns||[]).join(', '))+'</span>';
+  loadAll();
 }
 async function importFile(){
   const f=document.getElementById('partFile').files[0];
-  if(!f){ document.getElementById('imsg').innerHTML='<span class="text-red-600">Choose a CSV file first.</span>'; return; }
-  try { importRows(rowsToObjects(await fileToText(f))); } catch(e){ document.getElementById('imsg').innerHTML='<span class="text-red-600">'+e.message+'</span>'; }
+  const imsg=document.getElementById('imsg');
+  if(!f){ imsg.innerHTML='<span class="text-red-600">Choose a CSV or Excel file first.</span>'; return; }
+  imsg.textContent='Reading '+f.name+' ...'; imsg.className='text-sm mt-2 text-slate-600';
+  try{ const res=matrixToParticipants(await fileToMatrix(f)); await importRows(res.rows, res.columns); }
+  catch(e){ imsg.innerHTML='<span class="text-red-600">'+e.message+'</span>'; }
 }
-function importPasted(){ try { importRows(rowsToObjects(document.getElementById('csv').value)); } catch(e){ document.getElementById('imsg').innerHTML='<span class="text-red-600">'+e.message+'</span>'; } }
+async function importPasted(){
+  const imsg=document.getElementById('imsg');
+  try{ const res=matrixToParticipants(parseDelimited(document.getElementById('csv').value)); await importRows(res.rows, res.columns); }
+  catch(e){ imsg.innerHTML='<span class="text-red-600">'+e.message+'</span>'; }
+}
 
 // ---------- 2. form builder ----------
 const TYPES=['text','textarea','number','email','tel','date','select','radio','multiselect'];
@@ -333,6 +396,6 @@ function renderCharts(stats){
 async function loadStats(){ const r=await fetch('/api/admin/stats?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(currentEvent())); renderCharts(await r.json()); }
 
 async function loadAll(){ await loadParticipants(); await loadResponses(); await loadStats(); }
-loadEvents().then(async ()=>{ await loadFields(); await loadAll(); });
+loadEvents().then(async ()=>{ await validateKey(); await loadFields(); await loadAll(); });
 </script>
 </body></html>

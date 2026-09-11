@@ -258,7 +258,7 @@ async function importParticipants(rows, eventSlug) {
   for (const r of rows) {
     const reg = (r.reg_number || '').trim();
     const name = (r.full_name || '').trim();
-    if (!reg || !name) continue;
+    if (!reg || !name) { results.push({ reg_number: reg, full_name: name, status: 'skipped', reason: 'missing reg_number or full_name' }); continue; }
     const token = crypto.randomBytes(16).toString('hex');
     const extra = JSON.stringify(r);
     if (backend === 'postgres') {

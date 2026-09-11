@@ -68,7 +68,10 @@ app.post('/api/admin/import', requireAdmin, async (req, res, next) => {
     const eventSlug = req.body.event || req.query.event || 'deans-cup-2026';
     if (!Array.isArray(rows) || !rows.length) return res.status(400).json({ error: 'participants array required: [{reg_number, full_name, email}]' });
     const results = await db.importParticipants(rows, eventSlug);
-    res.json({ imported: results.length, results });
+    const created = results.filter(x => x.status === 'created').length;
+    const exists = results.filter(x => x.status === 'exists').length;
+    const skipped = results.filter(x => x.status === 'skipped').length;
+    res.json({ imported: created, created, exists, skipped, results });
   } catch (e) { next(e); }
 });
 app.get('/api/admin/participants', requireAdmin, async (req, res, next) => {
