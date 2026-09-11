@@ -158,10 +158,23 @@ async function getEventId(slug) {
   const s = slug || 'deans-cup-2026';
   if (backend === 'postgres') {
     const { rows } = await pgPool.query('SELECT id FROM events WHERE slug=$1', [s]);
-    return (rows[0] && rows[0].id != null) ? rows[0].id : 1;
+    return (rows[0] && rows[0].id != null) ? rows[0].id : null;
   }
   const row = sqlite.prepare('SELECT id FROM events WHERE slug=?').get(s);
-  return (row && row.id != null) ? row.id : 1;
+  return (row && row.id != null) ? row.id : null;
+}
+
+async function ensureEvent(slug) {
+  const s = slug || 'deans-cup-2026';
+  const id = await getEventId(s);
+  if (id != null) return id;
+  if (backend === 'postgres') {
+    const ins = await pgPool.query('INSERT INTO events(slug, title, description, fields, created_at) VALUES($1,$2,$3,$4,$5) RETURNING id', [s, s, '', null, new Date().toISOString()]);
+    return ins.rows[0].id;
+  }
+  sqlite.prepare('INSERT INTO events(slug, title, description, fields, created_at) VALUES(?,?,?,?,?)').run(s, s, '', null, new Date().toISOString());
+  const nr = sqlite.prepare('SELECT id FROM events WHERE slug=?').get(s);
+  return nr.id;
 }
 
 async function listEvents() {
@@ -186,6 +199,7 @@ async function createEvent(slug, title, description, fields) {
 
 async function deleteEvent(slug) {
   const eventId = await getEventId(slug);
+  if (eventId == null) return;
   if (backend === 'postgres') {
     await pgPool.query('DELETE FROM responses WHERE event_id=$1', [eventId]);
     await pgPool.query('DELETE FROM participants WHERE event_id=$1', [eventId]);
@@ -239,7 +253,7 @@ async function setEventFields(slug, fields) {
 }
 
 async function importParticipants(rows, eventSlug) {
-  const eventId = await getEventId(eventSlug);
+  const eventId = await ensureEvent(eventSlug);
   const results = [];
   for (const r of rows) {
     const reg = (r.reg_number || '').trim();
@@ -273,6 +287,7 @@ async function getParticipantByToken(token) {
 
 async function listParticipants(eventSlug) {
   const eventId = eventSlug ? await getEventId(eventSlug) : null;
+  if (eventSlug && eventId == null) return [];
   if (backend === 'postgres') {
     if (eventId) {
       const { rows } = await pgPool.query('SELECT token, reg_number, full_name, email, used, event_id, created_at FROM participants WHERE event_id=$1 ORDER BY created_at', [eventId]);
@@ -371,6 +386,7 @@ async function submitResponse(token, payload) {
 
 async function listResponses(eventSlug) {
   const eventId = eventSlug ? await getEventId(eventSlug) : null;
+  if (eventSlug && eventId == null) return [];
   if (backend === 'postgres') {
     if (eventId) { const { rows } = await pgPool.query('SELECT * FROM responses WHERE event_id=$1 ORDER BY submitted_at DESC', [eventId]); return rows; }
     const { rows } = await pgPool.query('SELECT * FROM responses ORDER BY submitted_at DESC');
@@ -417,4 +433,4 @@ async function getStats(eventSlug) {
   return { total: responses.length, byYear, byGender, bySport, byFootball, byField, fieldLabels, timeline };
 }
 
-module.exports = { DEFAULT_FIELDS, init, listEvents, createEvent, deleteEvent, getEventId, getEventFields, getEventFieldsById, setEventFields, importParticipants, getParticipantByToken, listParticipants, submitResponse, listResponses, createOTP, verifyOTP, hasVerifiedOTP, getStats };
+module.exports = { DEFAULT_FIELDS, init, listEvents, createEvent, deleteEvent, getEventId, ensureEvent, getEventFields, getEventFieldsById, setEventFields, importParticipants, getParticipantByToken, listParticipants, submitResponse, listResponses, createOTP, verifyOTP, hasVerifiedOTP, getStats };
