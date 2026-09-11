@@ -17,12 +17,13 @@ const DEFAULT_FIELDS = [
   { name: 'other_position', label: '8. For other sports, state your position/event/category.', type: 'text', required: false }
 ];
 
-function init(config = {}) {
+async function init(config = {}) {
   const url = (config.databaseUrl || '').trim();
   if (url.startsWith('postgres://') || url.startsWith('postgresql://')) {
     backend = 'postgres';
     const { Pool } = require('pg');
-    pgPool = new Pool({ connectionString: url });
+    const needsSsl = !/localhost|127\.0\.0\.1/.test(url);
+    pgPool = new Pool({ connectionString: url, ssl: needsSsl ? { rejectUnauthorized: false } : false });
   } else {
     backend = 'sqlite';
     const { DatabaseSync } = require('node:sqlite');
@@ -31,10 +32,10 @@ function init(config = {}) {
     sqlite = new DatabaseSync(file);
     sqlite.exec('PRAGMA journal_mode = WAL;');
   }
-  createSchema();
+  await createSchema();
 }
 
-function createSchema() {
+async function createSchema() {
   if (backend === 'sqlite') {
     sqlite.exec(`
       CREATE TABLE IF NOT EXISTS events (
@@ -98,8 +99,7 @@ function createSchema() {
     }
     return;
   }
-  return (async () => {
-    await pgPool.query(`
+  await pgPool.query(`
       CREATE TABLE IF NOT EXISTS events (
         id SERIAL PRIMARY KEY,
         slug TEXT UNIQUE NOT NULL,
@@ -147,7 +147,11 @@ function createSchema() {
     if (!rows.length) {
       await pgPool.query('INSERT INTO events(slug, title, description, fields, created_at) VALUES($1,$2,$3,$4,$5)', ['deans-cup-2026', "ECS Dean's Cup 2026", 'Electronics and Computer Engineering sports registration - 4th Edition', JSON.stringify(DEFAULT_FIELDS), new Date().toISOString()]);
     }
-  })();
+  await pgPool.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS fields TEXT');
+  await pgPool.query('ALTER TABLE participants ADD COLUMN IF NOT EXISTS event_id INTEGER DEFAULT 1');
+  await pgPool.query('ALTER TABLE participants ADD COLUMN IF NOT EXISTS extra TEXT');
+  await pgPool.query('ALTER TABLE responses ADD COLUMN IF NOT EXISTS event_id INTEGER DEFAULT 1');
+  await pgPool.query('ALTER TABLE responses ADD COLUMN IF NOT EXISTS data TEXT');
 }
 
 async function getEventId(slug) {

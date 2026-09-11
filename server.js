@@ -8,7 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 3002;
 const ADMIN_KEY = process.env.ADMIN_KEY || 'admin123';
 
-db.init({ databaseUrl: process.env.DATABASE_URL, sqliteFile: process.env.SQLITE_FILE });
+const ready = db.init({ databaseUrl: process.env.DATABASE_URL, sqliteFile: process.env.SQLITE_FILE });
 
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -186,7 +186,8 @@ app.get('/', async (req, res) => {
 });
 
 app.use((err, req, res, next) => { console.error(err); res.status(500).json({ error: 'Server error' }); });
-app.listen(PORT, () => console.log(`Token survey on http://localhost:${PORT}  admin key=${ADMIN_KEY}`));
+ready.then(() => app.listen(PORT, () => console.log(`Token survey on http://localhost:${PORT}  admin key=${ADMIN_KEY}`)))
+  .catch(err => { console.error('Startup failed:', err); process.exit(1); });
 
 function loadEnv() {
   const file = path.join(__dirname, '.env');
