@@ -8,7 +8,7 @@
   <div class="max-w-6xl mx-auto px-6 py-6 flex flex-wrap items-center justify-between gap-4">
     <div>
       <h1 class="text-2xl font-bold">University Participation System</h1>
-      <p class="text-indigo-100 text-sm mt-1">Upload your own CSV & define your own form fields - general token system</p>
+      <p class="text-indigo-100 text-sm mt-1">Upload your CSV & build your own form - general token system</p>
     </div>
     <div class="flex items-center gap-2 bg-white/10 backdrop-blur rounded-xl px-3 py-2">
       <span class="text-sm">Admin key</span>
@@ -23,7 +23,7 @@
   <div class="bg-white border border-indigo-100 rounded-2xl p-5 shadow-sm flex flex-wrap gap-4 items-center justify-between">
     <div>
       <h2 class="font-bold">General System</h2>
-      <p class="text-sm text-slate-600">Pick an event, upload the student CSV from your computer + upload/define the form fields. Each student gets a single-use token + email OTP.</p>
+      <p class="text-sm text-slate-600">Pick an event, upload the student CSV from your computer, then build the form fields students will fill.</p>
     </div>
     <div class="flex gap-2">
       <select id="eventSel" class="border rounded-lg px-3 py-2 text-sm" onchange="onEventChange()"></select>
@@ -54,24 +54,35 @@
     <p id="imsg" class="text-sm mt-2"></p>
   </div>
 
-  <!-- 2. Form fields -->
+  <!-- 2. Form builder -->
   <div class="bg-white rounded-2xl p-6 shadow-sm border">
-    <h2 class="text-lg font-bold">2. Form fields (the data entry points students fill)</h2>
-    <p class="text-sm text-slate-600 mt-1">Upload a fields file or edit JSON. Columns: <code class="bg-slate-100 px-1 rounded">name,label,type,required,options</code> (options separated by <code>|</code>). Types: text, textarea, number, email, tel, date, select, radio, multiselect.</p>
-    <div class="mt-3 flex flex-wrap items-center gap-3">
-      <input id="fieldsFile" type="file" accept=".csv,.json,text/csv,application/json" class="block text-sm border rounded-lg p-2 bg-slate-50">
-      <a href="#" onclick="downloadFieldsTemplate();return false;" class="text-indigo-600 text-sm underline">Download fields template CSV</a>
-      <button onclick="loadDefaultFields()" class="bg-slate-100 px-4 py-2 rounded-xl text-sm">Load Dean's Cup default</button>
-      <button onclick="downloadCurrentFields()" class="bg-slate-100 px-4 py-2 rounded-xl text-sm">Download current JSON</button>
+    <h2 class="text-lg font-bold">2. Build the form students fill</h2>
+    <p class="text-sm text-slate-600 mt-1">Add fields below. For dropdowns/checkboxes, put choices in Options separated by <code class="bg-slate-100 px-1 rounded">|</code>. Types: text, textarea, number, email, tel, date, select, radio, multiselect.</p>
+
+    <div class="flex flex-wrap items-center gap-2 mt-3">
+      <button onclick="addRow()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">+ Add field</button>
+      <button onclick="loadDefaultFields()" class="bg-slate-100 px-4 py-2 rounded-lg text-sm">Load Dean's Cup default</button>
+      <button onclick="downloadFieldsTemplate()" class="bg-slate-100 px-4 py-2 rounded-lg text-sm">Download template CSV</button>
+      <button onclick="toggleAdvanced()" class="bg-slate-100 px-4 py-2 rounded-lg text-sm">Advanced (JSON)</button>
+      <button onclick="downloadCurrentFields()" class="bg-slate-100 px-4 py-2 rounded-lg text-sm">Download JSON</button>
     </div>
-    <label class="block text-sm font-semibold mt-4">Field definitions (JSON)</label>
-    <textarea id="fieldsJson" class="mt-1 w-full h-64 border rounded-xl p-3 font-mono text-xs"></textarea>
-    <div class="flex gap-3 mt-3">
-      <button onclick="saveFields()" class="bg-indigo-600 text-white px-5 py-2 rounded-xl font-semibold">Save fields for this event</button>
+
+    <div id="builder" class="mt-4 space-y-2"></div>
+
+    <div id="advancedBox" class="hidden mt-4">
+      <label class="block text-sm font-semibold">Field definitions (JSON - advanced)</label>
+      <textarea id="fieldsJson" class="mt-1 w-full h-56 border rounded-xl p-3 font-mono text-xs" oninput="loadBuilderFromJsonQuiet()"></textarea>
+    </div>
+
+    <div class="flex flex-wrap gap-3 mt-4">
+      <button onclick="saveFields()" class="bg-indigo-600 text-white px-5 py-2 rounded-xl font-semibold">Save form for this event</button>
       <button onclick="previewFields()" class="bg-slate-100 px-5 py-2 rounded-xl">Preview</button>
+      <label class="bg-slate-100 px-4 py-2 rounded-xl text-sm cursor-pointer">Upload fields file (CSV/JSON)
+        <input id="fieldsFile" type="file" accept=".csv,.json,text/csv,application/json" class="hidden">
+      </label>
     </div>
-    <div id="fieldsPreview" class="mt-3"></div>
     <p id="fmsg" class="text-sm mt-2"></p>
+    <div id="fieldsPreview" class="mt-3"></div>
   </div>
 
   <!-- 3. Participants & links -->
@@ -110,6 +121,7 @@ function updateExportLink(){ const e=currentEvent(); document.getElementById('ex
 function authHeaders(){ return {'Content-Type':'application/json','X-Admin-Key':ADMIN_KEY}; }
 function currentEvent(){ return document.getElementById('eventSel').value || 'deans-cup-2026'; }
 function onEventChange(){ updateExportLink(); loadFields(); loadAll(); }
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 // ---------- CSV parsing (handles quotes) ----------
 function parseCsv(text){
@@ -146,40 +158,60 @@ async function importFile(){
 }
 function importPasted(){ try { importRows(rowsToObjects(document.getElementById('csv').value)); } catch(e){ document.getElementById('imsg').innerHTML='<span class="text-red-600">'+e.message+'</span>'; } }
 
-// ---------- 2. fields ----------
-function fieldsFromCsv(text){
-  const objs=rowsToObjects(text);
-  const fields=objs.map(o=>({
-    name:(o.name||'').trim(), label:(o.label||o.name||'').trim(),
-    type:(o.type||'text').trim().toLowerCase(),
-    required: /^(yes|true|1|y)$/i.test(String(o.required||'').trim()),
-    options: (o.options||'').split('|').map(s=>s.trim()).filter(Boolean)
-  })).filter(f=>f.name);
-  if(!fields.length) throw new Error('No fields found. Need header: name,label,type,required,options');
-  return fields;
+// ---------- 2. form builder ----------
+const TYPES=['text','textarea','number','email','tel','date','select','radio','multiselect'];
+function fieldRowHtml(f){
+  f=f||{};
+  const opts=(f.options||[]).join('|');
+  const typeOpts=TYPES.map(t=>'<option value="'+t+'"'+(f.type===t?' selected':'')+'>'+t+'</option>').join('');
+  return '<div class="fieldRow grid grid-cols-12 gap-2 items-end bg-slate-50 border rounded-lg p-2">'
+    +'<div class="col-span-6 md:col-span-3"><label class="text-[11px] text-slate-500">Name (key)</label><input data-k="name" value="'+esc(f.name||'')+'" oninput="syncJsonFromBuilder()" class="w-full border rounded px-2 py-1 text-sm" placeholder="e.g. gender"></div>'
+    +'<div class="col-span-6 md:col-span-3"><label class="text-[11px] text-slate-500">Label</label><input data-k="label" value="'+esc(f.label||'')+'" oninput="syncJsonFromBuilder()" class="w-full border rounded px-2 py-1 text-sm" placeholder="e.g. Gender"></div>'
+    +'<div class="col-span-4 md:col-span-2"><label class="text-[11px] text-slate-500">Type</label><select data-k="type" onchange="syncJsonFromBuilder()" class="w-full border rounded px-2 py-1 text-sm">'+typeOpts+'</select></div>'
+    +'<div class="col-span-2 md:col-span-1 text-center"><label class="text-[11px] text-slate-500">Req</label><br><input type="checkbox" data-k="required" '+(f.required?'checked':'')+' onchange="syncJsonFromBuilder()"></div>'
+    +'<div class="col-span-5 md:col-span-2"><label class="text-[11px] text-slate-500">Options ( | )</label><input data-k="options" value="'+esc(opts)+'" oninput="syncJsonFromBuilder()" class="w-full border rounded px-2 py-1 text-sm" placeholder="Male|Female"></div>'
+    +'<div class="col-span-1 md:col-span-1 text-right"><button onclick="removeRow(this)" class="text-red-600 hover:bg-red-50 rounded px-2 py-1">✕</button></div>'
+    +'</div>';
 }
-async function loadFields(){
-  const r=await fetch('/api/admin/fields?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(currentEvent()));
-  const j=await r.json();
-  document.getElementById('fieldsJson').value=JSON.stringify(j,null,2);
+function renderBuilder(fields){ document.getElementById('builder').innerHTML=(fields&&fields.length?fields:[]).map(fieldRowHtml).join('') || '<p class="text-sm text-slate-500">No fields yet. Click "+ Add field" or "Load Dean\'s Cup default".</p>'; }
+function addRow(){ const b=document.getElementById('builder'); if(b.querySelector('p')) b.innerHTML=''; b.insertAdjacentHTML('beforeend', fieldRowHtml({type:'text'})); syncJsonFromBuilder(); }
+function removeRow(btn){ const row=btn.closest('.fieldRow'); if(row) row.remove(); syncJsonFromBuilder(); }
+function collectBuilder(){
+  return [...document.querySelectorAll('#builder .fieldRow')].map(row=>{
+    const g=k=>row.querySelector('[data-k="'+k+'"]');
+    const f={ name:(g('name').value||'').trim(), label:(g('label').value||'').trim(), type:g('type').value, required:g('required').checked, options:(g('options').value||'').split('|').map(s=>s.trim()).filter(Boolean) };
+    if(!f.label) f.label=f.name;
+    return f;
+  }).filter(f=>f.name);
+}
+function syncJsonFromBuilder(){ document.getElementById('fieldsJson').value=JSON.stringify(collectBuilder(),null,2); }
+function loadBuilderFromJsonQuiet(){ try{ renderBuilder(JSON.parse(document.getElementById('fieldsJson').value)); }catch(e){} }
+function toggleAdvanced(){ const b=document.getElementById('advancedBox'); b.classList.toggle('hidden'); if(!b.classList.contains('hidden')) syncJsonFromBuilder(); }
+async function loadDefaultFields(){
+  const r=await fetch('/api/events/deans-cup-2026/fields'); const j=await r.json();
+  renderBuilder(j); syncJsonFromBuilder(); renderPreview(j);
   document.getElementById('statFields').textContent=(j||[]).length;
-  renderPreview(j);
+  document.getElementById('fmsg').innerHTML='<span class="text-slate-600">Loaded Dean\'s Cup defaults. Click "Save form for this event" to apply.</span>';
 }
+function previewFields(){ try{ const f=collectBuilder(); renderPreview(f); }catch(e){ document.getElementById('fmsg').innerHTML='<span class="text-red-600">'+e.message+'</span>'; } }
 function renderPreview(fields){
   const el=document.getElementById('fieldsPreview');
   if(!fields||!fields.length){ el.innerHTML=''; return; }
-  el.innerHTML='<p class="text-sm font-semibold mb-1">Preview</p><div class="border rounded-xl p-3 bg-slate-50 text-sm">'+fields.map(f=>{
+  el.innerHTML='<p class="text-sm font-semibold mb-1">Preview (how students see it)</p><div class="border rounded-xl p-4 bg-slate-50 text-sm space-y-3">'+fields.map(f=>{
     let inner='';
-    if(f.type==='multiselect') inner='<div class="flex flex-wrap gap-2">'+(f.options||[]).map(o=>'<label class="border rounded px-2 py-1 bg-white">☐ '+esc(o)+'</label>').join('')+'</div>';
-    else if(f.type==='select'||f.type==='radio') inner='<span class="text-slate-500">['+(f.options||[]).join(' / ')+']</span>';
-    else inner='<span class="text-slate-400">[____]</span>';
-    return '<div class="py-1"><b>'+(f.required?'* ':'')+esc(f.label)+'</b> <span class="text-xs text-slate-400">('+esc(f.type)+')</span><div>'+inner+'</div></div>';
+    const t=f.type||'text';
+    if(t==='multiselect') inner='<div class="flex flex-wrap gap-2">'+(f.options||[]).map(o=>'<label class="border rounded px-2 py-1 bg-white">☐ '+esc(o)+'</label>').join('')+'</div>';
+    else if(t==='select') inner='<select class="border rounded px-2 py-1"><option>'+(f.options&&f.options.length?'-- select --':'')+'</option>'+(f.options||[]).map(o=>'<option>'+esc(o)+'</option>').join('')+'</select>';
+    else if(t==='radio') inner=(f.options||[]).map(o=>'<label class="inline-flex items-center gap-1 mr-3"><input type="radio"> '+esc(o)+'</label>').join('');
+    else if(t==='textarea') inner='<textarea class="border rounded w-full" rows="2"></textarea>';
+    else inner='<input type="'+esc(t)+'" class="border rounded px-2 py-1" placeholder="'+esc(t)+'">';
+    return '<div><b>'+(f.required?'* ':'')+esc(f.label)+'</b> <span class="text-xs text-slate-400">('+esc(t)+')</span><div class="mt-1">'+inner+'</div></div>';
   }).join('')+'</div>';
 }
-function previewFields(){ try{ renderPreview(JSON.parse(document.getElementById('fieldsJson').value)); }catch(e){ document.getElementById('fmsg').innerHTML='<span class="text-red-600">'+e.message+'</span>'; } }
 async function saveFields(){
   const fmsg=document.getElementById('fmsg');
-  let fields; try{ fields=JSON.parse(document.getElementById('fieldsJson').value); }catch(e){ fmsg.innerHTML='<span class="text-red-600">Invalid JSON: '+e.message+'</span>'; return; }
+  const fields=collectBuilder();
+  if(!fields.length){ fmsg.innerHTML='<span class="text-red-600">Add at least one field with a name.</span>'; return; }
   const r=await fetch('/api/admin/fields',{method:'POST',headers:authHeaders(),body:JSON.stringify({event:currentEvent(),fields})});
   const j=await r.json();
   if(!r.ok){ fmsg.innerHTML='<span class="text-red-600">'+(j.error||'Error')+'</span>'; return; }
@@ -193,17 +225,36 @@ document.getElementById('fieldsFile').addEventListener('change', async (e)=>{
     let fields;
     if(f.name.toLowerCase().endsWith('.json')) fields=JSON.parse(txt);
     else fields=fieldsFromCsv(txt);
-    document.getElementById('fieldsJson').value=JSON.stringify(fields,null,2); renderPreview(fields);
-    fmsg.innerHTML='<span class="text-slate-600">Loaded '+fields.length+' fields from '+esc(f.name)+'. Click Save to apply.</span>';
+    renderBuilder(fields); syncJsonFromBuilder(); renderPreview(fields);
+    fmsg.innerHTML='<span class="text-slate-600">Loaded '+fields.length+' fields from '+esc(f.name)+'. Click "Save form for this event" to apply.</span>';
   }catch(err){ fmsg.innerHTML='<span class="text-red-600">'+err.message+'</span>'; }
 });
+function fieldsFromCsv(text){
+  const objs=rowsToObjects(text);
+  const fields=objs.map(o=>({
+    name:(o.name||'').trim(), label:(o.label||o.name||'').trim(),
+    type:(o.type||'text').trim().toLowerCase(),
+    required: /^(yes|true|1|y)$/i.test(String(o.required||'').trim()),
+    options: (o.options||'').split('|').map(s=>s.trim()).filter(Boolean)
+  })).filter(f=>f.name);
+  if(!fields.length) throw new Error('No fields found. Need header: name,label,type,required,options');
+  return fields;
+}
 function downloadFieldsTemplate(){
   const csv='name,label,type,required,options\nfull_name,Full name,text,yes,\nreg_number,Registration Number,text,yes,\ngender,Gender,select,yes,Male|Female\nyear_of_study,Year of Study,select,yes,1|2|3|4\nsports,Sports,multiselect,yes,Football|Chess|Swimming\ncomments,Comments,textarea,no,';
   download('form-fields-template.csv',csv);
 }
 function downloadCurrentFields(){ download('form-fields.json', document.getElementById('fieldsJson').value||'[]'); }
 function download(name,text){ const b=new Blob([text],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=name; a.click(); }
-function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+// ---------- fields load ----------
+async function loadFields(){
+  const r=await fetch('/api/admin/fields?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(currentEvent()));
+  const j=await r.json();
+  document.getElementById('fieldsJson').value=JSON.stringify(j,null,2);
+  document.getElementById('statFields').textContent=(j||[]).length;
+  renderBuilder(j); renderPreview(j);
+}
 
 // ---------- events ----------
 async function loadEvents(){
@@ -263,10 +314,9 @@ function renderCharts(stats){
   const addCard=(title,canvasHeight,build)=>{ const card=document.createElement('div'); card.className='bg-white rounded-2xl p-5 shadow-sm border'; const h=document.createElement('h3'); h.className='font-bold mb-2'; h.textContent=title; const cv=document.createElement('canvas'); cv.height=canvasHeight; card.appendChild(h); card.appendChild(cv); container.appendChild(card); charts.push(build(cv)); };
   const byField=stats.byField||{}; const labels=stats.fieldLabels||{};
   const keys=Object.keys(byField);
-  if(!keys.length){ addCard('No chart fields','120',cv=>new Chart(cv,{type:'bar',data:{labels:['No select/multiselect fields'],datasets:[{data:[0]}]}})); }
-  keys.forEach((name,i)=>{
+  if(!keys.length){ addCard('No chart fields yet','120',cv=>new Chart(cv,{type:'bar',data:{labels:['Add a select/multiselect field'],datasets:[{data:[0]}]}})); }
+  keys.forEach((name)=>{
     const counts=byField[name]||{}; const entries=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
-    const isMulti = true;
     addCard(labels[name]||name, 220, cv=>new Chart(cv,{type: entries.length>6?'bar':'doughnut', data:{labels:entries.map(e=>e[0]), datasets:[{label:'Count', data:entries.map(e=>e[1]), backgroundColor: entries.length>6?'#8b5cf6':PALETTE}]}, options:{indexAxis: entries.length>6?'y':'x', plugins:{legend:{display: entries.length<=6}}}}));
   });
   const tl=Object.keys(stats.timeline||{}).sort();
