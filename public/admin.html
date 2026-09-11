@@ -8,7 +8,7 @@
   <div class="max-w-6xl mx-auto px-6 py-6 flex flex-wrap items-center justify-between gap-4">
     <div>
       <h1 class="text-2xl font-bold">University Participation System</h1>
-      <p class="text-indigo-100 text-sm mt-1">General token-based surveys & event registrations - Dean's Cup 2026 and beyond</p>
+      <p class="text-indigo-100 text-sm mt-1">Upload your own CSV & define your own form fields - general token system</p>
     </div>
     <div class="flex items-center gap-2 bg-white/10 backdrop-blur rounded-xl px-3 py-2">
       <span class="text-sm">Admin key</span>
@@ -20,11 +20,10 @@
 </div>
 
 <div class="max-w-6xl mx-auto px-6 py-6 space-y-6">
-  <!-- General system notice -->
   <div class="bg-white border border-indigo-100 rounded-2xl p-5 shadow-sm flex flex-wrap gap-4 items-center justify-between">
     <div>
       <h2 class="font-bold">General System</h2>
-      <p class="text-sm text-slate-600">Create events, import allowlist CSV per event, each student gets a unique single-use token + email OTP verification. No open link - secure by design.</p>
+      <p class="text-sm text-slate-600">Pick an event, upload the student CSV from your computer + upload/define the form fields. Each student gets a single-use token + email OTP.</p>
     </div>
     <div class="flex gap-2">
       <select id="eventSel" class="border rounded-lg px-3 py-2 text-sm" onchange="onEventChange()"></select>
@@ -32,55 +31,53 @@
     </div>
   </div>
 
-  <!-- Stats cards -->
   <div class="grid md:grid-cols-4 gap-4">
     <div class="bg-white rounded-2xl p-5 shadow-sm border"><p class="text-xs text-slate-500">Participants</p><p id="statParticipants" class="text-2xl font-bold">-</p></div>
     <div class="bg-white rounded-2xl p-5 shadow-sm border"><p class="text-xs text-slate-500">Responses</p><p id="statResponses" class="text-2xl font-bold">-</p></div>
     <div class="bg-white rounded-2xl p-5 shadow-sm border"><p class="text-xs text-slate-500">Response Rate</p><p id="statRate" class="text-2xl font-bold">-</p></div>
-    <div class="bg-white rounded-2xl p-5 shadow-sm border"><p class="text-xs text-slate-500">Event</p><p id="statEvent" class="text-sm font-bold truncate">-</p></div>
+    <div class="bg-white rounded-2xl p-5 shadow-sm border"><p class="text-xs text-slate-500">Form Fields</p><p id="statFields" class="text-2xl font-bold">-</p></div>
   </div>
 
-  <!-- Visualizations -->
-  <div class="grid lg:grid-cols-2 gap-6">
-    <div class="bg-white rounded-2xl p-5 shadow-sm border">
-      <h3 class="font-bold">Responses by Year of Study</h3>
-      <canvas id="chartYear" height="200"></canvas>
-    </div>
-    <div class="bg-white rounded-2xl p-5 shadow-sm border">
-      <h3 class="font-bold">Gender Distribution</h3>
-      <canvas id="chartGender" height="200"></canvas>
-    </div>
-    <div class="bg-white rounded-2xl p-5 shadow-sm border">
-      <h3 class="font-bold">Sports Popularity</h3>
-      <canvas id="chartSports" height="220"></canvas>
-    </div>
-    <div class="bg-white rounded-2xl p-5 shadow-sm border">
-      <h3 class="font-bold">Submissions Over Time</h3>
-      <canvas id="chartTimeline" height="220"></canvas>
-    </div>
-  </div>
-  <div class="bg-white rounded-2xl p-5 shadow-sm border">
-    <h3 class="font-bold">Football Positions</h3>
-    <canvas id="chartFootball" height="100"></canvas>
-  </div>
-
-  <!-- Import -->
+  <!-- 1. Participants upload -->
   <div class="bg-white rounded-2xl p-6 shadow-sm border">
-    <h2 class="text-lg font-bold">1. Import Currently-Enrolled CSV</h2>
-    <p class="text-sm text-slate-600 mt-1">Columns: <code class="bg-slate-100 px-1 rounded">reg_number,full_name,email</code> - only these students can participate. Header required.</p>
-    <textarea id="csv" class="mt-3 w-full h-40 border rounded-xl p-3 font-mono text-sm" placeholder="reg_number,full_name,email&#10;BU/ECS/2022/001,John Doe,john@soroti.ac.ug"></textarea>
-    <div class="flex flex-wrap gap-2 mt-3">
-      <button onclick="importCsv()" class="bg-indigo-600 text-white px-5 py-2 rounded-xl font-semibold">Import & Generate Tokens</button>
-      <button onclick="loadSample()" class="bg-slate-100 px-5 py-2 rounded-xl">Load 25-student demo</button>
-      <a href="/demo-currently-enrolled.csv" class="bg-slate-100 px-5 py-2 rounded-xl inline-block">Download demo CSV</a>
+    <h2 class="text-lg font-bold">1. Upload participants (currently-enrolled students)</h2>
+    <p class="text-sm text-slate-600 mt-1">Choose a CSV file from your computer. Required columns: <code class="bg-slate-100 px-1 rounded">reg_number, full_name, email</code>. Extra columns are stored too.</p>
+    <div class="mt-3 flex flex-wrap items-center gap-3">
+      <input id="partFile" type="file" accept=".csv,text/csv" class="block text-sm border rounded-lg p-2 bg-slate-50">
+      <button onclick="importFile()" class="bg-indigo-600 text-white px-5 py-2 rounded-xl font-semibold">Upload & Generate Tokens</button>
+      <a href="/demo-currently-enrolled.csv" class="text-indigo-600 text-sm underline">Download sample CSV</a>
     </div>
+    <details class="mt-3"><summary class="text-sm text-slate-500 cursor-pointer">or paste CSV text</summary>
+      <textarea id="csv" class="mt-2 w-full h-32 border rounded-xl p-3 font-mono text-sm" placeholder="reg_number,full_name,email"></textarea>
+      <button onclick="importPasted()" class="mt-2 bg-slate-100 px-5 py-2 rounded-xl text-sm">Import pasted text</button>
+    </details>
     <p id="imsg" class="text-sm mt-2"></p>
   </div>
 
-  <!-- Participants -->
+  <!-- 2. Form fields -->
+  <div class="bg-white rounded-2xl p-6 shadow-sm border">
+    <h2 class="text-lg font-bold">2. Form fields (the data entry points students fill)</h2>
+    <p class="text-sm text-slate-600 mt-1">Upload a fields file or edit JSON. Columns: <code class="bg-slate-100 px-1 rounded">name,label,type,required,options</code> (options separated by <code>|</code>). Types: text, textarea, number, email, tel, date, select, radio, multiselect.</p>
+    <div class="mt-3 flex flex-wrap items-center gap-3">
+      <input id="fieldsFile" type="file" accept=".csv,.json,text/csv,application/json" class="block text-sm border rounded-lg p-2 bg-slate-50">
+      <a href="#" onclick="downloadFieldsTemplate();return false;" class="text-indigo-600 text-sm underline">Download fields template CSV</a>
+      <button onclick="loadDefaultFields()" class="bg-slate-100 px-4 py-2 rounded-xl text-sm">Load Dean's Cup default</button>
+      <button onclick="downloadCurrentFields()" class="bg-slate-100 px-4 py-2 rounded-xl text-sm">Download current JSON</button>
+    </div>
+    <label class="block text-sm font-semibold mt-4">Field definitions (JSON)</label>
+    <textarea id="fieldsJson" class="mt-1 w-full h-64 border rounded-xl p-3 font-mono text-xs"></textarea>
+    <div class="flex gap-3 mt-3">
+      <button onclick="saveFields()" class="bg-indigo-600 text-white px-5 py-2 rounded-xl font-semibold">Save fields for this event</button>
+      <button onclick="previewFields()" class="bg-slate-100 px-5 py-2 rounded-xl">Preview</button>
+    </div>
+    <div id="fieldsPreview" class="mt-3"></div>
+    <p id="fmsg" class="text-sm mt-2"></p>
+  </div>
+
+  <!-- 3. Participants & links -->
   <div class="bg-white rounded-2xl p-6 shadow-sm border">
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <h2 class="text-lg font-bold">2. Participants & Personal Links</h2>
+      <h2 class="text-lg font-bold">3. Participants & Personal Links</h2>
       <div class="flex gap-2">
         <button onclick="loadParticipants()" class="border px-4 py-2 rounded-xl text-sm">Refresh</button>
         <button onclick="exportParticipantsCsv()" class="bg-slate-800 text-white px-4 py-2 rounded-xl text-sm">Export tokens CSV</button>
@@ -89,10 +86,10 @@
     <div id="participants" class="mt-4 overflow-auto"></div>
   </div>
 
-  <!-- Responses -->
+  <!-- 4. Responses -->
   <div class="bg-white rounded-2xl p-6 shadow-sm border">
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <h2 class="text-lg font-bold">3. Responses</h2>
+      <h2 class="text-lg font-bold">4. Responses</h2>
       <div class="flex gap-2">
         <button onclick="loadResponses()" class="border px-4 py-2 rounded-xl text-sm">Refresh</button>
         <a id="exportLink" href="#" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm inline-block">Download responses CSV</a>
@@ -100,126 +97,184 @@
     </div>
     <div id="responses" class="mt-4 overflow-auto"></div>
   </div>
+
+  <!-- Charts (dynamic from this event's fields) -->
+  <div id="charts" class="grid lg:grid-cols-2 gap-6"></div>
 </div>
 
 <script>
 let ADMIN_KEY = localStorage.getItem('admin_key') || 'admin123';
 document.getElementById('key').value = ADMIN_KEY;
 function saveKey(){ ADMIN_KEY=document.getElementById('key').value; localStorage.setItem('admin_key', ADMIN_KEY); document.getElementById('kmsg').textContent='Saved'; updateExportLink(); loadAll(); }
-function updateExportLink(){ const e=document.getElementById('eventSel').value||'deans-cup-2026'; document.getElementById('exportLink').href='/api/admin/export?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(e); }
+function updateExportLink(){ const e=currentEvent(); document.getElementById('exportLink').href='/api/admin/export?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(e); }
 function authHeaders(){ return {'Content-Type':'application/json','X-Admin-Key':ADMIN_KEY}; }
 function currentEvent(){ return document.getElementById('eventSel').value || 'deans-cup-2026'; }
-function onEventChange(){ updateExportLink(); loadAll(); }
+function onEventChange(){ updateExportLink(); loadFields(); loadAll(); }
 
-let charts={};
-function renderCharts(stats){
-  const destroy=(id)=>{ if(charts[id]){ charts[id].destroy(); } };
-  // Year
-  destroy('year'); {
-    const ctx=document.getElementById('chartYear');
-    const labels=Object.keys(stats.byYear||{});
-    const data=labels.map(k=>stats.byYear[k]);
-    charts.year=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Responses',data,backgroundColor:'#6366f1'}]},options:{responsive:true,plugins:{legend:{display:false}}}});
+// ---------- CSV parsing (handles quotes) ----------
+function parseCsv(text){
+  const rows=[]; let cur=[], val='', q=false;
+  text = text.replace(/^\uFEFF/, '');
+  for(let i=0;i<text.length;i++){ const c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){val+='"';i++;} else q=false; } else val+=c; }
+    else { if(c==='"') q=true; else if(c===','){cur.push(val);val='';} else if(c==='\n'){cur.push(val);rows.push(cur);cur=[];val='';} else if(c==='\r'){} else val+=c; }
   }
-  // Gender
-  destroy('gender'); {
-    const ctx=document.getElementById('chartGender');
-    const labels=Object.keys(stats.byGender||{});
-    const data=labels.map(k=>stats.byGender[k]);
-    charts.gender=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:['#6366f1','#ec4899','#10b981','#f59e0b']}]},options:{responsive:true}});
-  }
-  // Sports
-  destroy('sports'); {
-    const ctx=document.getElementById('chartSports');
-    const entries=Object.entries(stats.bySport||{}).sort((a,b)=>b[1]-a[1]).slice(0,12);
-    charts.sports=new Chart(ctx,{type:'bar',data:{labels:entries.map(e=>e[0]),datasets:[{label:'Players',data:entries.map(e=>e[1]),backgroundColor:'#8b5cf6'}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}}}});
-  }
-  // Timeline
-  destroy('timeline'); {
-    const ctx=document.getElementById('chartTimeline');
-    const labels=Object.keys(stats.timeline||{}).sort();
-    const data=labels.map(k=>stats.timeline[k]);
-    charts.timeline=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'Submissions',data,borderColor:'#0ea5e9',backgroundColor:'rgba(14,165,233,0.2)',fill:true,tension:0.3}]},options:{responsive:true}});
-  }
-  // Football
-  destroy('football'); {
-    const ctx=document.getElementById('chartFootball');
-    const labels=Object.keys(stats.byFootball||{});
-    const data=labels.map(k=>stats.byFootball[k]);
-    charts.football=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Players',data,backgroundColor:'#f59e0b'}]},options:{responsive:true,plugins:{legend:{display:false}}}});
-  }
+  if(val.length||cur.length){cur.push(val);rows.push(cur);}
+  return rows.filter(r=>r.some(x=>String(x).trim()!==''));
 }
+function rowsToObjects(text){
+  const rows=parseCsv(text); if(!rows.length) return [];
+  const header=rows[0].map(h=>h.trim().toLowerCase());
+  return rows.slice(1).map(r=>{ const o={}; header.forEach((h,i)=>o[h]=(r[i]||'').trim()); return o; });
+}
+const fileToText = (file) => new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsText(file); });
 
+// ---------- 1. participants ----------
+async function importRows(rows){
+  const imsg=document.getElementById('imsg');
+  if(!rows.length){ imsg.innerHTML='<span class="text-red-600">No rows found.</span>'; return; }
+  imsg.textContent='Importing '+rows.length+'...'; imsg.className='text-sm mt-2 text-slate-600';
+  const r=await fetch('/api/admin/import?event='+encodeURIComponent(currentEvent()),{method:'POST',headers:authHeaders(),body:JSON.stringify({participants:rows})});
+  const j=await r.json();
+  if(!r.ok){ imsg.innerHTML='<span class="text-red-600">'+(j.error||'Error')+'</span>'; return; }
+  imsg.innerHTML='<span class="text-green-600">Imported '+j.imported+' participants.</span>'; loadAll();
+}
+async function importFile(){
+  const f=document.getElementById('partFile').files[0];
+  if(!f){ document.getElementById('imsg').innerHTML='<span class="text-red-600">Choose a CSV file first.</span>'; return; }
+  try { importRows(rowsToObjects(await fileToText(f))); } catch(e){ document.getElementById('imsg').innerHTML='<span class="text-red-600">'+e.message+'</span>'; }
+}
+function importPasted(){ try { importRows(rowsToObjects(document.getElementById('csv').value)); } catch(e){ document.getElementById('imsg').innerHTML='<span class="text-red-600">'+e.message+'</span>'; } }
+
+// ---------- 2. fields ----------
+function fieldsFromCsv(text){
+  const objs=rowsToObjects(text);
+  const fields=objs.map(o=>({
+    name:(o.name||'').trim(), label:(o.label||o.name||'').trim(),
+    type:(o.type||'text').trim().toLowerCase(),
+    required: /^(yes|true|1|y)$/i.test(String(o.required||'').trim()),
+    options: (o.options||'').split('|').map(s=>s.trim()).filter(Boolean)
+  })).filter(f=>f.name);
+  if(!fields.length) throw new Error('No fields found. Need header: name,label,type,required,options');
+  return fields;
+}
+async function loadFields(){
+  const r=await fetch('/api/admin/fields?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(currentEvent()));
+  const j=await r.json();
+  document.getElementById('fieldsJson').value=JSON.stringify(j,null,2);
+  document.getElementById('statFields').textContent=(j||[]).length;
+  renderPreview(j);
+}
+function renderPreview(fields){
+  const el=document.getElementById('fieldsPreview');
+  if(!fields||!fields.length){ el.innerHTML=''; return; }
+  el.innerHTML='<p class="text-sm font-semibold mb-1">Preview</p><div class="border rounded-xl p-3 bg-slate-50 text-sm">'+fields.map(f=>{
+    let inner='';
+    if(f.type==='multiselect') inner='<div class="flex flex-wrap gap-2">'+(f.options||[]).map(o=>'<label class="border rounded px-2 py-1 bg-white">☐ '+esc(o)+'</label>').join('')+'</div>';
+    else if(f.type==='select'||f.type==='radio') inner='<span class="text-slate-500">['+(f.options||[]).join(' / ')+']</span>';
+    else inner='<span class="text-slate-400">[____]</span>';
+    return '<div class="py-1"><b>'+(f.required?'* ':'')+esc(f.label)+'</b> <span class="text-xs text-slate-400">('+esc(f.type)+')</span><div>'+inner+'</div></div>';
+  }).join('')+'</div>';
+}
+function previewFields(){ try{ renderPreview(JSON.parse(document.getElementById('fieldsJson').value)); }catch(e){ document.getElementById('fmsg').innerHTML='<span class="text-red-600">'+e.message+'</span>'; } }
+async function saveFields(){
+  const fmsg=document.getElementById('fmsg');
+  let fields; try{ fields=JSON.parse(document.getElementById('fieldsJson').value); }catch(e){ fmsg.innerHTML='<span class="text-red-600">Invalid JSON: '+e.message+'</span>'; return; }
+  const r=await fetch('/api/admin/fields',{method:'POST',headers:authHeaders(),body:JSON.stringify({event:currentEvent(),fields})});
+  const j=await r.json();
+  if(!r.ok){ fmsg.innerHTML='<span class="text-red-600">'+(j.error||'Error')+'</span>'; return; }
+  fmsg.innerHTML='<span class="text-green-600">Saved '+j.count+' fields.</span>'; renderPreview(fields); document.getElementById('statFields').textContent=fields.length;
+}
+document.getElementById('fieldsFile').addEventListener('change', async (e)=>{
+  const f=e.target.files[0]; if(!f) return;
+  const fmsg=document.getElementById('fmsg');
+  try{
+    const txt=await fileToText(f);
+    let fields;
+    if(f.name.toLowerCase().endsWith('.json')) fields=JSON.parse(txt);
+    else fields=fieldsFromCsv(txt);
+    document.getElementById('fieldsJson').value=JSON.stringify(fields,null,2); renderPreview(fields);
+    fmsg.innerHTML='<span class="text-slate-600">Loaded '+fields.length+' fields from '+esc(f.name)+'. Click Save to apply.</span>';
+  }catch(err){ fmsg.innerHTML='<span class="text-red-600">'+err.message+'</span>'; }
+});
+function downloadFieldsTemplate(){
+  const csv='name,label,type,required,options\nfull_name,Full name,text,yes,\nreg_number,Registration Number,text,yes,\ngender,Gender,select,yes,Male|Female\nyear_of_study,Year of Study,select,yes,1|2|3|4\nsports,Sports,multiselect,yes,Football|Chess|Swimming\ncomments,Comments,textarea,no,';
+  download('form-fields-template.csv',csv);
+}
+function downloadCurrentFields(){ download('form-fields.json', document.getElementById('fieldsJson').value||'[]'); }
+function download(name,text){ const b=new Blob([text],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=name; a.click(); }
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+// ---------- events ----------
 async function loadEvents(){
   const r=await fetch('/api/events'); const evs=await r.json();
   const sel=document.getElementById('eventSel'); sel.innerHTML='';
   for(const ev of evs){ const o=document.createElement('option'); o.value=ev.slug; o.textContent=ev.title+' ('+ev.slug+')'; sel.appendChild(o); }
   if(!sel.value) sel.value='deans-cup-2026';
-  document.getElementById('statEvent').textContent=sel.value;
   updateExportLink();
 }
 async function createEventPrompt(){
-  const slug=prompt('Event slug (e.g. deans-cup-2027):'); if(!slug) return;
+  const slug=prompt('Event slug (e.g. sports-day-2027):'); if(!slug) return;
   const title=prompt('Event title:'); if(!title) return;
   const desc=prompt('Description:')||'';
   const r=await fetch('/api/admin/events',{method:'POST',headers:authHeaders(),body:JSON.stringify({slug,title,description:desc})});
   const j=await r.json(); if(!r.ok) return alert(j.error); await loadEvents(); document.getElementById('eventSel').value=slug; onEventChange();
 }
-function parseCsv(text){
-  const lines=text.trim().split(/\r?\n/);
-  const header=lines[0].split(',').map(h=>h.trim().toLowerCase());
-  const ri=header.indexOf('reg_number'), ni=header.indexOf('full_name'), ei=header.indexOf('email');
-  if(ri<0||ni<0) throw new Error('CSV needs header reg_number,full_name,email');
-  return lines.slice(1).filter(l=>l.trim()).map(l=>{
-    const cols=l.split(',').map(c=>c.trim());
-    return {reg_number: cols[ri]||'', full_name: cols[ni]||'', email: cols[ei]||''};
-  });
-}
-async function importCsv(){
-  const imsg=document.getElementById('imsg');
-  try{
-    const participants=parseCsv(document.getElementById('csv').value);
-    imsg.textContent='Importing '+participants.length+'...'; imsg.className='text-sm mt-2 text-slate-600';
-    const r=await fetch('/api/admin/import?event='+encodeURIComponent(currentEvent()),{method:'POST',headers:authHeaders(),body:JSON.stringify({participants})});
-    const j=await r.json(); if(!r.ok) throw new Error(j.error);
-    imsg.innerHTML='<span class="text-green-600">Imported '+j.imported+' participants.</span>'; loadAll();
-  }catch(e){ imsg.innerHTML='<span class="text-red-600">'+e.message+'</span>'; }
-}
-function loadSample(){
-  fetch('/demo-currently-enrolled.csv').then(r=>r.text()).then(t=>{ document.getElementById('csv').value=t; });
-}
+
+// ---------- participants list ----------
 async function loadParticipants(){
   const r=await fetch('/api/admin/participants?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(currentEvent()));
   const j=await r.json(); const base=location.origin;
   let html='<table class="w-full text-sm"><thead><tr class="bg-slate-50"><th class="p-2 text-left">Reg</th><th class="p-2 text-left">Name</th><th class="p-2">Used</th><th class="p-2 text-left">Personal link</th></tr></thead><tbody>';
-  for(const p of j) html+=`<tr class="border-t"><td class="p-2">${p.reg_number}</td><td class="p-2">${p.full_name}</td><td class="p-2 text-center">${p.used?'<span class="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">yes</span>':'<span class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">no</span>'}</td><td class="p-2"><a href="${base}/s?token=${p.token}" target="_blank" class="text-indigo-600 hover:underline break-all">${base}/s?token=${p.token.slice(0,12)}...</a></td></tr>`;
-  html+='</tbody></table>'; document.getElementById('participants').innerHTML= j.length? html : '<p class="text-slate-500">No participants yet. Import CSV above.</p>';
+  for(const p of j) html+='<tr class="border-t"><td class="p-2">'+esc(p.reg_number)+'</td><td class="p-2">'+esc(p.full_name)+'</td><td class="p-2 text-center">'+(p.used?'<span class="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">yes</span>':'<span class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">no</span>')+'</td><td class="p-2"><a href="'+base+'/s?token='+p.token+'" target="_blank" class="text-indigo-600 hover:underline break-all">'+base+'/s?token='+p.token.slice(0,12)+'...</a></td></tr>';
+  html+='</tbody></table>'; document.getElementById('participants').innerHTML= j.length? html : '<p class="text-slate-500">No participants yet.</p>';
   document.getElementById('statParticipants').textContent=j.length;
 }
 function exportParticipantsCsv(){
   fetch('/api/admin/participants?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(currentEvent())).then(r=>r.json()).then(j=>{
     let csv='reg_number,full_name,email,token,link,used\n'; const base=location.origin;
-    for(const p of j) csv+=`"${p.reg_number}","${p.full_name}","${p.email||''}","${p.token}","${base}/s?token=${p.token}",${p.used}\n`;
-    const blob=new Blob([csv],{type:'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='tokens.csv'; a.click();
+    for(const p of j) csv+='"'+p.reg_number+'","'+p.full_name+'","'+(p.email||'')+'","'+p.token+'","'+base+'/s?token='+p.token+'",'+p.used+'\n';
+    download('tokens.csv',csv);
   });
 }
+
+// ---------- responses ----------
 async function loadResponses(){
   const r=await fetch('/api/admin/responses?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(currentEvent()));
   const j=await r.json();
   document.getElementById('statResponses').textContent=j.length;
   const parts=await fetch('/api/admin/participants?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(currentEvent())).then(x=>x.json());
-  const rate = parts.length ? Math.round(j.length/parts.length*100)+'%' : '-';
-  document.getElementById('statRate').textContent=rate;
+  document.getElementById('statRate').textContent= parts.length ? Math.round(j.length/parts.length*100)+'%' : '-';
   if(!j.length){ document.getElementById('responses').innerHTML='<p class="text-slate-500">No responses yet.</p>'; return; }
-  let html='<table class="w-full text-sm"><thead><tr class="bg-slate-50"><th class="p-2 text-left">Reg</th><th class="p-2 text-left">Name</th><th class="p-2">Year</th><th class="p-2">Gender</th><th class="p-2 text-left">Sports</th><th class="p-2">Submitted</th></tr></thead><tbody>';
-  for(const x of j) html+=`<tr class="border-t"><td class="p-2">${x.reg_number}</td><td class="p-2">${x.full_name}</td><td class="p-2 text-center">${x.year_of_study}</td><td class="p-2 text-center">${x.gender}</td><td class="p-2">${x.sports}</td><td class="p-2 text-xs">${x.submitted_at.slice(0,19).replace('T',' ')}</td></tr>`;
+  let html='<table class="w-full text-sm"><thead><tr class="bg-slate-50"><th class="p-2 text-left">Reg</th><th class="p-2 text-left">Name</th><th class="p-2 text-left">Answers</th><th class="p-2">Submitted</th></tr></thead><tbody>';
+  for(const x of j){ let a={}; try{ a=x.data?JSON.parse(x.data):{}; }catch{}
+    const ans=Object.entries(a).map(([k,v])=>'<b>'+esc(k)+':</b> '+esc(Array.isArray(v)?v.join(', '):v)).join('<br>');
+    html+='<tr class="border-t align-top"><td class="p-2">'+esc(x.reg_number)+'</td><td class="p-2">'+esc(x.full_name)+'</td><td class="p-2 text-xs">'+(ans||'-')+'</td><td class="p-2 text-xs">'+String(x.submitted_at).slice(0,19).replace('T',' ')+'</td></tr>';
+  }
   html+='</tbody></table>'; document.getElementById('responses').innerHTML=html;
 }
-async function loadStats(){
-  const r=await fetch('/api/admin/stats?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(currentEvent()));
-  const j=await r.json(); renderCharts(j);
+
+// ---------- charts (dynamic based on this event's fields) ----------
+let charts=[];
+const PALETTE=['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#0ea5e9','#ef4444','#14b8a6','#a855f7','#f97316','#84cc16','#06b6d4'];
+function renderCharts(stats){
+  charts.forEach(c=>c.destroy()); charts=[];
+  const container=document.getElementById('charts'); container.innerHTML='';
+  const addCard=(title,canvasHeight,build)=>{ const card=document.createElement('div'); card.className='bg-white rounded-2xl p-5 shadow-sm border'; const h=document.createElement('h3'); h.className='font-bold mb-2'; h.textContent=title; const cv=document.createElement('canvas'); cv.height=canvasHeight; card.appendChild(h); card.appendChild(cv); container.appendChild(card); charts.push(build(cv)); };
+  const byField=stats.byField||{}; const labels=stats.fieldLabels||{};
+  const keys=Object.keys(byField);
+  if(!keys.length){ addCard('No chart fields','120',cv=>new Chart(cv,{type:'bar',data:{labels:['No select/multiselect fields'],datasets:[{data:[0]}]}})); }
+  keys.forEach((name,i)=>{
+    const counts=byField[name]||{}; const entries=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+    const isMulti = true;
+    addCard(labels[name]||name, 220, cv=>new Chart(cv,{type: entries.length>6?'bar':'doughnut', data:{labels:entries.map(e=>e[0]), datasets:[{label:'Count', data:entries.map(e=>e[1]), backgroundColor: entries.length>6?'#8b5cf6':PALETTE}]}, options:{indexAxis: entries.length>6?'y':'x', plugins:{legend:{display: entries.length<=6}}}}));
+  });
+  const tl=Object.keys(stats.timeline||{}).sort();
+  addCard('Submissions Over Time', 200, cv=>new Chart(cv,{type:'line',data:{labels:tl,datasets:[{label:'Submissions',data:tl.map(k=>stats.timeline[k]),borderColor:'#0ea5e9',backgroundColor:'rgba(14,165,233,0.2)',fill:true,tension:0.3}]}}));
 }
+async function loadStats(){ const r=await fetch('/api/admin/stats?key='+encodeURIComponent(ADMIN_KEY)+'&event='+encodeURIComponent(currentEvent())); renderCharts(await r.json()); }
+
 async function loadAll(){ await loadParticipants(); await loadResponses(); await loadStats(); }
-loadEvents().then(loadAll);
+loadEvents().then(async ()=>{ await loadFields(); await loadAll(); });
 </script>
 </body></html>
